@@ -1,7 +1,8 @@
 // ==UserScript==
 // @name         AccName/AccDescription Injector
 // @namespace    http://tampermonkey.net/
-// @version      1.1
+// @version      1.2
+// @downloadURL    https://raw.githubusercontent.com/OwenEdwards-LevelAccess/accNameInjector/refs/heads/main/accNameInjector.js
 // @updateURL    https://raw.githubusercontent.com/OwenEdwards-LevelAccess/accNameInjector/refs/heads/main/accNameInjector.js
 // @description  Adds live-updating accName and accDescription properties to every DOM element, based on the accessible name/description computation algorithm (https://github.com/google/accname)
 // @author       Owen Edwards
