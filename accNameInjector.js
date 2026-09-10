@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AccName/AccDescription/AccRole Injector
 // @namespace    http://tampermonkey.net/
-// @version      3.1
+// @version      3.2.9
 // @downloadURL  https://raw.githubusercontent.com/OwenEdwards-LevelAccess/accNameInjector/refs/heads/main/accNameInjector.js
 // @updateURL    https://raw.githubusercontent.com/OwenEdwards-LevelAccess/accNameInjector/refs/heads/main/accNameInjector.js
 // @description  Adds live-updating accName and accDescription properties to every DOM element, based on core implementation of Accessible Name and Description Computation 1.2: https://w3c.github.io/aria/accname/
@@ -15,13 +15,18 @@
     'use strict';
 
     console.info(
-        '[AccName/AccDescription/AccRole Injector] This userscript is running.\n' +
-        'Add live expressions to watch values such as ' +
-        'document.activeElement.accName, ' +
-        'document.activeElement.accDescription, and ' +
-        'document.activeElement.accRole (the computed role of the element).\n' +
-        'These values *may* differ from those displayed in DevTools > Accessibility.\n' +
-        'Always verify information provided by this script.'
+        '%cAccName/AccDescription/AccRole Injector userscript is running.\n' +
+        '%cAdd live expressions to watch values such as:\n' +
+        '%cdocument.activeElement?.accName\n' +
+        'document.activeElement?.accDescription\n' +
+        'document.activeElement?.accRole %c(the computed role of the element).\n' +
+        '%cThese values *may* differ from those displayed in DevTools > Accessibility; ' +
+        'always verify information provided by this script.',
+        'font-size: 1.5em; color: white; background-color: black;',
+        'font-size: 1.2em;',
+        'font-family: system-ui; font-size: 1.2em;',
+        'font-style: italic; font-size: 1.2em;',
+        'color: red; font-size: 1.2em',
     );
 
     // -----------------------------------------------------------------
@@ -38,9 +43,9 @@
     // * Browser accessibility trees may differ from DOM-based computation in areas such as presentational-child conflict resolution and complex aria-owns relationships.
 
     // From GitHub Copilot, for accRole:
-    // There is one important boundary: this is still a DOM-side approximation of Chromium’s Blink AX tree. 
-    // Chromium has additional context-sensitive behavior for the full HTML-AAM, SVG/MathML, DPUB-ARIA roles, 
-    // malformed structures, aria-owns, presentational-child conflict resolution, and platform-specific AX roles. 
+    // There is one important boundary: this is still a DOM-side approximation of Chromium’s Blink AX tree.
+    // Chromium has additional context-sensitive behavior for the full HTML-AAM, SVG/MathML, DPUB-ARIA roles,
+    // malformed structures, aria-owns, presentational-child conflict resolution, and platform-specific AX roles.
     // I am not certain that every internal Chromium role string would be identical without querying the browser’s Accessibility domain directly.
 
     const NAME_FROM_CONTENT_ROLES = new Set([
