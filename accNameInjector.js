@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AccName/AccDescription/AccRole/AccState/AccAttributes Injector
 // @namespace    http://tampermonkey.net/
-// @version      5.7.3
+// @version      6.0.0
 // @downloadURL  https://raw.githubusercontent.com/OwenEdwards-LevelAccess/accNameInjector/refs/heads/main/accNameInjector.js
 // @updateURL    https://raw.githubusercontent.com/OwenEdwards-LevelAccess/accNameInjector/refs/heads/main/accNameInjector.js
 // @description  Adds live-updating accName and accDescription properties to every DOM element, based on core implementation of Accessible Name and Description Computation 1.2: https://w3c.github.io/aria/accname/. Also adds accRole, accState, and accAttributes properties, and document.deepActiveElement for pages with iframes.
@@ -98,13 +98,43 @@
             .find((token) => KNOWN_ROLES.has(token)) || '';
     }
 
-    function idRefsToElements(ids, doc) {
+    function idRefsToElements(ids, referenceNode) {
         if (!ids) return [];
         return ids
             .trim()
             .split(/\s+/)
-            .map((id) => doc.getElementById(id))
+            .map((id) => findElementById(id, referenceNode))
             .filter(Boolean);
+    }
+
+    function findElementById(id, referenceNode) {
+        const root = referenceNode && typeof referenceNode.getRootNode === 'function'
+            ? referenceNode.getRootNode()
+            : document;
+        const localMatch = root.getElementById ? root.getElementById(id) :
+            root.querySelector?.(`[id="${CSS.escape(id)}"]`);
+        if (localMatch) return localMatch;
+
+        const documentMatch = document.getElementById(id);
+        if (documentMatch) return documentMatch;
+
+        const searchShadowRoot = (shadowRoot) => {
+            const match = shadowRoot.querySelector(`[id="${CSS.escape(id)}"]`);
+            if (match) return match;
+            for (const element of shadowRoot.querySelectorAll('*')) {
+                if (!element.shadowRoot) continue;
+                const nestedMatch = searchShadowRoot(element.shadowRoot);
+                if (nestedMatch) return nestedMatch;
+            }
+            return null;
+        };
+
+        for (const element of document.querySelectorAll('*')) {
+            if (!element.shadowRoot) continue;
+            const match = searchShadowRoot(element.shadowRoot);
+            if (match) return match;
+        }
+        return null;
     }
 
     function flatString(value) {
@@ -116,11 +146,21 @@
     }
 
     function getRenderedChildNodes(node) {
-        if (node.shadowRoot) return Array.from(node.shadowRoot.childNodes);
         if (node.tagName === 'SLOT' && typeof node.assignedNodes === 'function' && node.assignedNodes().length) {
             return node.assignedNodes({ flatten: true });
         }
+        if (node.shadowRoot) return Array.from(node.shadowRoot.childNodes);
         return Array.from(node.childNodes);
+    }
+
+    function getShadowSemanticElement(el) {
+        if (!el.shadowRoot) return null;
+        const candidates = [el.shadowRoot, ...el.shadowRoot.querySelectorAll('*')];
+        return candidates.find((candidate) => {
+            if (!(candidate instanceof Element) || candidate === el) return false;
+            return getRole(candidate) || getNativeRole(candidate) ||
+                ['button', 'input', 'select', 'textarea', 'option'].includes(candidate.tagName.toLowerCase());
+        }) || null;
     }
 
     function getPseudoContent(node, pseudo) {
@@ -150,7 +190,10 @@
     }
 
     function getRoleForNaming(el) {
-        return getRole(el) || getNativeRole(el);
+        if (!(el instanceof Element)) return '';
+        const shadowSemanticElement = getShadowSemanticElement(el);
+        return getRole(el) || getNativeRole(el) ||
+            (shadowSemanticElement ? getRoleForNaming(shadowSemanticElement) : '');
     }
 
     function isFocusable(el) {
@@ -248,7 +291,11 @@
 
     function getAccessibleRole(el) {
         const explicitRole = getRole(el);
-        const implicitRole = getImplicitRole(el);
+        const nativeRole = getImplicitRole(el);
+        const shadowSemanticElement = getShadowSemanticElement(el);
+        const implicitRole = nativeRole === 'generic' && shadowSemanticElement
+            ? getRoleForNaming(shadowSemanticElement)
+            : nativeRole;
         let role;
 
         if (explicitRole && !['none', 'presentation'].includes(explicitRole)) {
@@ -301,7 +348,7 @@
         // Step 2A: aria-labelledby (not applicable when already resolving a labelledby chain)
         if (!context.inLabelledBy) {
             const labelledBy = node.getAttribute && node.getAttribute('aria-labelledby');
-            const refs = idRefsToElements(labelledBy, node.ownerDocument);
+            const refs = idRefsToElements(labelledBy, node);
             if (refs.length) {
                 const parts = refs.map((ref) =>
                     computeTextAlternative(ref, { ...context, inLabelledBy: true, allowHidden: isHiddenFromName(ref) })
@@ -320,6 +367,10 @@
         if (tag === 'img' || tag === 'area') {
             const alt = node.getAttribute('alt');
             if (alt && alt.trim()) return alt.trim();
+        }
+
+        if (node.hasAttribute('label') && node.getAttribute('label').trim()) {
+            return flatString(node.getAttribute('label'));
         }
 
         if (tag === 'input' || tag === 'textarea' || tag === 'select') {
@@ -404,7 +455,7 @@
     function computeDescription(node) {
         if (!(node instanceof Element)) return '';
         const describedBy = node.getAttribute('aria-describedby');
-        const refs = idRefsToElements(describedBy, node.ownerDocument);
+        const refs = idRefsToElements(describedBy, node);
         if (node.hasAttribute('aria-describedby')) {
             return flatString(refs.map((ref) => computeTextAlternative(ref, {
                 visitedNodes: new Set(), inLabelledBy: true, allowHidden: isHiddenFromName(ref)
@@ -412,6 +463,8 @@
         }
         const ariaDescription = node.getAttribute('aria-description');
         if (ariaDescription !== null) return flatString(ariaDescription);
+        const componentDescription = node.getAttribute('description');
+        if (componentDescription && componentDescription.trim()) return flatString(componentDescription);
         const title = node.getAttribute('title');
         if (title && title.trim() && getAccessibleName(node) !== flatString(title)) return flatString(title);
         return '';
@@ -532,6 +585,12 @@
             if (el.getAttribute('aria-invalid') === 'true') states.push('invalid');
             if (el.getAttribute('aria-busy') === 'true') states.push('busy');
 
+            const shadowSemanticElement = getShadowSemanticElement(el);
+            if (shadowSemanticElement && !states.length) {
+                const shadowState = getAccessibleState(shadowSemanticElement);
+                if (shadowState) states.push(shadowState);
+            }
+
             return states.filter((state) => state !== '').join(', ');
         } catch (e) {
             return '';
@@ -588,6 +647,11 @@
                     .filter((attribute) =>
                         INTERESTING_HTML_ATTRIBUTES.has(attribute.name) || INTERESTING_ARIA_ATTRIBUTES.has(attribute.name))
                     .map((attribute) => [attribute.name, attribute.value]));
+
+                const shadowSemanticElement = getShadowSemanticElement(el);
+                if (shadowSemanticElement) {
+                    Object.assign(attributes, getAccessibleAttributes(shadowSemanticElement));
+                }
 
             // Check if any ancestor has aria-hidden="true" and propagate it to the attributes.
             let parent = el;
@@ -664,6 +728,10 @@
         if (root instanceof Element) definePropertiesOn(root);
         const elements = root.querySelectorAll ? root.querySelectorAll('*') : [];
         elements.forEach(definePropertiesOn);
+        elements.forEach((element) => {
+            if (element.shadowRoot) processAllElements(element.shadowRoot);
+        });
+        if (root instanceof Element && root.shadowRoot) processAllElements(root.shadowRoot);
     }
 
     // Since accName/accDescription are computed live via getters,
