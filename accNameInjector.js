@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         AccName/AccDescription/AccRole Injector
+// @name         AccName/AccDescription/AccRole/AccState/AccAttributes Injector
 // @namespace    http://tampermonkey.net/
-// @version      3.2.9
+// @version      5.7.3
 // @downloadURL  https://raw.githubusercontent.com/OwenEdwards-LevelAccess/accNameInjector/refs/heads/main/accNameInjector.js
 // @updateURL    https://raw.githubusercontent.com/OwenEdwards-LevelAccess/accNameInjector/refs/heads/main/accNameInjector.js
-// @description  Adds live-updating accName and accDescription properties to every DOM element, based on core implementation of Accessible Name and Description Computation 1.2: https://w3c.github.io/aria/accname/
+// @description  Adds live-updating accName and accDescription properties to every DOM element, based on core implementation of Accessible Name and Description Computation 1.2: https://w3c.github.io/aria/accname/. Also adds accRole, accState, and accAttributes properties, and document.deepActiveElement for pages with iframes.
 // @author       Owen Edwards
 // @match        *://*/*
 // @grant        none
@@ -15,17 +15,20 @@
     'use strict';
 
     console.info(
-        '%cAccName/AccDescription/AccRole Injector userscript is running.\n' +
+        '%cAccName/AccDescription/AccRole/AccState/AccAttributes Injector userscript is running.\n' +
         '%cAdd live expressions to watch values such as:\n' +
-        '%cdocument.activeElement?.accName\n' +
-        'document.activeElement?.accDescription\n' +
-        'document.activeElement?.accRole %c(the computed role of the element).\n' +
-        '%cThese values *may* differ from those displayed in DevTools > Accessibility; ' +
+        '%cdocument.deepActiveElement?.accName\n' +
+        'document.deepActiveElement?.accDescription\n' +
+        'document.deepActiveElement?.accRole %c(the computed role of the element).%c\n' +
+        'document.deepActiveElement?.accState\n' +
+        'document.deepActiveElement?.accAttributes\n' +
+        '\n%cThese values *may* differ from those displayed in DevTools > Accessibility; ' +
         'always verify information provided by this script.',
         'font-size: 1.5em; color: white; background-color: black;',
         'font-size: 1.2em;',
         'font-family: system-ui; font-size: 1.2em;',
         'font-style: italic; font-size: 1.2em;',
+        'font-family: system-ui; font-size: 1.2em;',
         'color: red; font-size: 1.2em',
     );
 
@@ -140,7 +143,7 @@
         if (tag === 'input') {
             const type = (el.getAttribute('type') || 'text').toLowerCase();
             return ({ checkbox: 'checkbox', radio: 'radio', range: 'slider',
-                search: 'searchbox', submit: 'button', reset: 'button',
+                number: 'spinbutton', search: 'searchbox', submit: 'button', reset: 'button',
                 button: 'button', image: 'button' })[type] || 'textbox';
         }
         return '';
@@ -245,13 +248,19 @@
 
     function getAccessibleRole(el) {
         const explicitRole = getRole(el);
-        if (explicitRole && !['none', 'presentation'].includes(explicitRole)) return explicitRole;
-
         const implicitRole = getImplicitRole(el);
-        if (explicitRole && ['none', 'presentation'].includes(explicitRole)) {
-            return isFocusable(el) || hasGlobalAriaAttribute(el) ? implicitRole : 'none';
+        let role;
+
+        if (explicitRole && !['none', 'presentation'].includes(explicitRole)) {
+            role = explicitRole;
+        } else if (explicitRole && ['none', 'presentation'].includes(explicitRole)) {
+            role = isFocusable(el) || hasGlobalAriaAttribute(el) ? implicitRole : 'none';
+        } else {
+            role = implicitRole;
         }
-        return implicitRole;
+
+        const roleDescription = el.getAttribute('aria-roledescription');
+        return roleDescription !== null ? `${role} (roledescription: ${roleDescription})` : role;
     }
 
     function getControlValue(node, role) {
@@ -424,6 +433,179 @@
         }
     }
 
+    function getSelectedOptionText(option) {
+        return flatString(option.label || option.textContent || option.value || '');
+    }
+
+    function getRangeState(el, role) {
+        const valueNow = role === 'slider' && el.hasAttribute('aria-valuenow')
+            ? el.getAttribute('aria-valuenow')
+            : 'value' in el
+                ? el.value
+                : el.getAttribute('aria-valuenow');
+        if (valueNow === null || valueNow === undefined || valueNow === '') return '';
+
+        const valueText = el.getAttribute('aria-valuetext');
+        return valueText ? `${valueNow} (${valueText})` : String(valueNow);
+    }
+
+    function getCheckedState(value) {
+        return ({
+            true: 'checked',
+            false: 'not checked',
+            mixed: 'mixed checked'
+        })[value] || value;
+    }
+
+    function getSwitchState(value) {
+        return ({
+            true: 'on',
+            false: 'off'
+        })[value] || value;
+    }
+
+    function getAccessibleState(el) {
+        try {
+            const tag = el.tagName.toLowerCase();
+            const role = getRoleForNaming(el);
+            const states = [];
+
+            if (tag === 'input') {
+                const type = (el.getAttribute('type') || 'text').toLowerCase();
+                      if (type === 'checkbox') {
+                          states.push(role === 'switch'
+                                ? (el.checked ? 'on' : 'off')
+                                : (el.checked ? 'checked' : 'not checked'));
+                } else if (type === 'radio') {
+                    states.push(el.checked ? 'selected' : 'not selected');
+                } else if (['email', 'password', 'search', 'tel', 'text', 'url'].includes(type)) {
+                    states.push(el.value);
+                }
+            } else if (tag === 'textarea') {
+                states.push(el.value);
+            } else if (tag === 'select') {
+                states.push(Array.from(el.selectedOptions).map(getSelectedOptionText).join(', '));
+            } else if (tag === 'option') {
+                states.push(el.selected ? 'selected' : 'not selected');
+            } else if (el.isContentEditable) {
+                states.push(el.textContent || '');
+            } else if (['combobox', 'listbox'].includes(role)) {
+                const selectedOptions = el.querySelectorAll('[aria-selected="true"], [aria-checked="true"]');
+                states.push(Array.from(selectedOptions).map((option) =>
+                    flatString(computeTextAlternative(option, { visitedNodes: new Set(), allowHidden: false }))
+                ).join(', '));
+            }
+
+            if (['checkbox', 'menuitemcheckbox', 'menuitemradio', 'radio', 'switch'].includes(role) &&
+                el.hasAttribute('aria-checked') && !(role === 'switch' &&
+                    tag === 'input' && (el.getAttribute('type') || 'text').toLowerCase() === 'checkbox')) {
+                const checkedState = el.getAttribute('aria-checked');
+                states.push(role === 'switch' ? getSwitchState(checkedState) : getCheckedState(checkedState));
+            }
+
+            if (role === 'button' && el.hasAttribute('aria-pressed')) {
+                const pressed = el.getAttribute('aria-pressed');
+                states.push(pressed === 'true' ? 'pressed' : pressed === 'false' ? 'not pressed' : pressed);
+            }
+
+            if (['option', 'tab', 'treeitem', 'gridcell', 'row'].includes(role) &&
+                el.hasAttribute('aria-selected')) {
+                states.push(el.getAttribute('aria-selected') === 'true' ? 'selected' : 'not selected');
+            }
+
+            if (['meter', 'progressbar', 'scrollbar', 'separator', 'slider', 'spinbutton'].includes(role)) {
+                states.push(getRangeState(el, role));
+            }
+
+            if (['combobox', 'disclosure', 'menu', 'tree', 'treeitem', 'button'].includes(role) &&
+                el.hasAttribute('aria-expanded')) {
+                states.push(el.getAttribute('aria-expanded') === 'true' ? 'expanded' : 'collapsed');
+            }
+
+            if (el.hasAttribute('aria-sort')) {
+                const sort = el.getAttribute('aria-sort').toLowerCase();
+                if (sort === 'ascending' || sort === 'descending') {
+                    states.push(`Sorted ${sort}`);
+                }
+            }
+
+            if (el.getAttribute('aria-invalid') === 'true') states.push('invalid');
+            if (el.getAttribute('aria-busy') === 'true') states.push('busy');
+
+            return states.filter((state) => state !== '').join(', ');
+        } catch (e) {
+            return '';
+        }
+    }
+
+
+    const INTERESTING_HTML_ATTRIBUTES = new Set([
+        'accesskey', 'autocapitalize', 'autofocus', 'contenteditable',
+        'dir', 'dirname', 'draggable', 'enterkeyhint', 'exportparts', 'hidden',
+        'inert', 'is', 'lang', 'nonce', 'part', 'popover', 'slot', 'spellcheck',
+        'translate', 'virtualkeyboardpolicy', 'writingsuggestions',
+        'placeholder', 'readonly', 'disabled', 'size', 'multiple', 'min', 'max', 
+        'type', 'href',
+        // NOT: 'id', 'class', 'style', 'name', 'value', 'title', 'alt', 'tabindex', 'role'
+    ]);
+
+    const INTERESTING_ARIA_ATTRIBUTES = new Set([
+        'aria-haspopup', 'aria-valuemin', 'aria-valuemax', 'aria-placeholder', 
+        'aria-readonly', 'aria-disabled', 'aria-size', 'aria-multiple', 'aria-min', 
+        'aria-max', 'aria-setsize', 'aria-posinset', 'aria-autocomplete', 'aria-modal',
+        'aria-orientation', 'aria-required', 'aria-sort',
+        // NOT: 'aria-label', 'aria-labelledby', 'aria-describedby', 'aria-description',
+        // 'aria-controls', 'aria-owns', 'aria-details', 'aria-errormessage', 'aria-activedescendant',
+        // 'aria-checked', 'aria-expanded', 'aria-pressed', 'aria-selected', 'aria-valuenow', 'aria-valuetext', 'aria-invalid'
+    ]);
+
+    function getAccessibleAttributes(el) {
+        try {
+            // If we wanted a list of attributes to *exclude*:
+            // const excludedAttributes = new Set([
+            //     'class', 'style', 'id', 'name', 'value', 'alt', 'title', 'target', 
+            //     'tabindex', 'role',
+            //     'aria-label', 'aria-labelledby', 'aria-describedby', 'aria-description',
+            //     'aria-controls', 'aria-owns', 'aria-details', 'aria-errormessage',
+            //     'aria-activedescendant',
+            //     'aria-checked', 'aria-expanded', 'aria-pressed', 'aria-selected',
+            //     'aria-valuenow', 'aria-valuetext',
+            // ]);
+            // const attributes = Object.fromEntries(Array.from(el.attributes)
+            //     .filter((attribute) =>
+            //         !excludedAttributes.has(attribute.name) && !attribute.name.startsWith('data-'))
+            //     .map((attribute) => [attribute.name, attribute.value]));
+
+                const omitInputType = el.tagName.toLowerCase() === 'input' &&
+                    ['checkbox', 'radio', 'range', 'number', 'button'].includes(
+                        (el.getAttribute('type') || 'text').toLowerCase());
+                const attributes = Object.fromEntries(Array.from(el.attributes)
+                    .filter((attribute) =>
+                        attribute.name !== 'type' || !omitInputType)
+                    .filter((attribute) =>
+                        attribute.name !== 'aria-sort' ||
+                        !['ascending', 'descending'].includes(attribute.value.toLowerCase()))
+                    .filter((attribute) =>
+                        INTERESTING_HTML_ATTRIBUTES.has(attribute.name) || INTERESTING_ARIA_ATTRIBUTES.has(attribute.name))
+                    .map((attribute) => [attribute.name, attribute.value]));
+
+            // Check if any ancestor has aria-hidden="true" and propagate it to the attributes.
+            let parent = el;
+            while (parent) {
+                if (parent.getAttribute('aria-hidden') === 'true') {
+                    attributes['aria-hidden'] = 'true';
+                    break;
+                }
+                parent = parent.parentElement;
+            }
+
+            return attributes;
+
+        } catch (e) {
+            return {};
+        }
+    }
+
     // -----------------------------------------------------------------
     // Property injection: define live-computed, non-enumerable getters
     // -----------------------------------------------------------------
@@ -458,6 +640,22 @@
                 } catch (e) {
                     return '';
                 }
+            }
+        });
+
+        Object.defineProperty(el, 'accState', {
+            configurable: true,
+            enumerable: false,
+            get() {
+                return getAccessibleState(this);
+            }
+        });
+
+        Object.defineProperty(el, 'accAttributes', {
+            configurable: true,
+            enumerable: false,
+            get() {
+                return getAccessibleAttributes(this);
             }
         });
     }
@@ -525,4 +723,37 @@
     } else {
         init();
     }
+
+    // Function to handle retrieving the currently focused element, even if it's inside nested iframes.
+    // USAGE:
+    // `getDeepActiveElement()?.accName`
+    // `getDeepActiveElement()?.accRole`
+    function getDeepActiveElement() {
+    let activeElement = document.activeElement;
+
+    // Loop as long as the current active element is an iframe
+    while (activeElement && activeElement.tagName === 'IFRAME') {
+        try {
+        // Access the inner document's active element
+        const iframeDoc = activeElement.contentWindow.document;
+        activeElement = iframeDoc.activeElement;
+        } catch (e) {
+        // Security Error: The iframe is cross-origin
+        // console.warn("Cannot access cross-origin iframe:", activeElement);
+        break; 
+        }
+    }
+
+    return activeElement;
+    }
+
+    // window.getDeepActiveElement = getDeepActiveElement;
+
+    Object.defineProperty(document, 'deepActiveElement', {
+        configurable: true,
+        get() {
+            return getDeepActiveElement();
+        }
+    });
 })();
+
