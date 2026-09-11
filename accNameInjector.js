@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AccName/AccDescription/AccRole/AccState/AccAttributes Injector
 // @namespace    http://tampermonkey.net/
-// @version      7.1.1
+// @version      7.1.2
 // @downloadURL  https://raw.githubusercontent.com/OwenEdwards-LevelAccess/accNameInjector/refs/heads/main/accNameInjector.js
 // @updateURL    https://raw.githubusercontent.com/OwenEdwards-LevelAccess/accNameInjector/refs/heads/main/accNameInjector.js
 // @description  Adds live-updating accName and accDescription properties to every DOM element, based on core implementation of Accessible Name and Description Computation 1.2: https://w3c.github.io/aria/accname/. Also adds accRole, accState, and accAttributes properties, and document.deepActiveElement for pages with iframes.
@@ -666,9 +666,11 @@
                 const omitInputType = el.tagName.toLowerCase() === 'input' &&
                     ['checkbox', 'radio', 'range', 'number', 'button'].includes(
                         (el.getAttribute('type') || 'text').toLowerCase());
+                const omitButtonType = el.tagName.toLowerCase() === 'button' &&
+                    (el.getAttribute('type') || 'submit').toLowerCase() === 'button';
                 const attributes = Object.fromEntries(Array.from(el.attributes)
                     .filter((attribute) =>
-                        attribute.name !== 'type' || !omitInputType)
+                        attribute.name !== 'type' || (!omitInputType && !omitButtonType))
                     .filter((attribute) =>
                         attribute.name !== 'aria-sort' ||
                         !['ascending', 'descending'].includes(attribute.value.toLowerCase()))
