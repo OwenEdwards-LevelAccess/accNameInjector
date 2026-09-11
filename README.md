@@ -37,3 +37,9 @@ For pages that have `<iframe>` elements, there is a helper attribute on `documen
 Go to **Tampermonkey** (*extension in Chrome*) **>** **Dashboard** (*menu item*) **>** **Utilities** (*tab*), and paste this URL into the **Import from URL** field, and then click **Install**. Then, on the edit script page, click **Install**.
 
 https://raw.githubusercontent.com/OwenEdwards-LevelAccess/accNameInjector/main/accNameInjector.js
+
+## Icon image attribution
+
+The bug icon for this project is:
+
+Bug by Pencil from <a href="https://thenounproject.com/browse/icons/term/bug/" target="_blank" title="Bug Icons">Noun Project</a> (CC BY 3.0)
