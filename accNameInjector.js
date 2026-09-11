@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AccName/AccDescription/AccRole/AccState/AccAttributes Injector
 // @namespace    http://tampermonkey.net/
-// @version      6.0.0
+// @version      7.0.0
 // @downloadURL  https://raw.githubusercontent.com/OwenEdwards-LevelAccess/accNameInjector/refs/heads/main/accNameInjector.js
 // @updateURL    https://raw.githubusercontent.com/OwenEdwards-LevelAccess/accNameInjector/refs/heads/main/accNameInjector.js
 // @description  Adds live-updating accName and accDescription properties to every DOM element, based on core implementation of Accessible Name and Description Computation 1.2: https://w3c.github.io/aria/accname/. Also adds accRole, accState, and accAttributes properties, and document.deepActiveElement for pages with iframes.
@@ -395,6 +395,11 @@
                     if (value && value.trim()) return value.trim();
                     if (type === 'submit') return 'Submit';
                 }
+                if (type === 'reset') {
+                    const value = node.getAttribute('value');
+                    if (value && value.trim()) return value.trim();
+                    return 'Reset';
+                }
                 if (type === 'image') {
                     const alt = node.getAttribute('alt');
                     if (alt && alt.trim()) return alt.trim();
@@ -415,6 +420,22 @@
             if (caption) {
                 const text = computeTextAlternative(caption, context);
                 if (text && text.trim()) return text.trim();
+            }
+        }
+
+        if (tag === 'figure') {
+            const figcaption = node.querySelector(':scope > figcaption');
+            if (figcaption) {
+                const text = computeTextAlternative(figcaption, context);
+                if (text && text.trim()) return text.trim();
+            }
+        }
+
+        if (tag === 'svg') {
+            const svgTitle = node.querySelector(':scope > title');
+            if (svgTitle) {
+                const text = flatString(svgTitle.textContent);
+                if (text) return text;
             }
         }
 
@@ -448,6 +469,12 @@
         // Step 2I: title attribute as fallback
         const title = node.getAttribute && node.getAttribute('title');
         if (title && title.trim() && !NAME_PROHIBITED_ROLES.has(role)) return flatString(title);
+
+        if (!context.inLabelledBy && !context.inLabel &&
+            ['input', 'textarea'].includes(tag)) {
+            const placeholder = node.getAttribute('placeholder');
+            if (placeholder && placeholder.trim()) return flatString(placeholder);
+        }
 
         return '';
     }
