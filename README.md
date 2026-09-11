@@ -42,4 +42,4 @@ https://raw.githubusercontent.com/OwenEdwards-LevelAccess/accNameInjector/main/a
 
 The bug icon for this project is:
 
-Bug by Pencil from <a href="https://thenounproject.com/browse/icons/term/bug/" target="_blank" title="Bug Icons">Noun Project</a> (CC BY 3.0)
+Bug by Liberus PJ from <a href="https://thenounproject.com/browse/icons/term/bug/" target="_blank" title="Bug Icons">Noun Project</a> (CC BY 3.0)
