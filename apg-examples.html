@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <title>ARIA Authoring Practices Examples</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #17212b;
+      --muted: #5c6873;
+      --line: #d9e0e6;
+      --paper: #ffffff;
+      --wash: #f3f6f8;
+      --accent: #005a70;
+      --accent-soft: #dff2f5;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--wash);
+      font: 16px/1.5 system-ui, sans-serif;
+    }
+    header {
+      padding: 2.5rem max(1rem, calc((100vw - 1200px) / 2));
+      color: white;
+      background: linear-gradient(135deg, #003b4a, #007b80);
+    }
+    header h1 { margin: 0 0 .5rem; font-size: clamp(1.8rem, 4vw, 3rem); }
+    header p { max-width: 780px; margin: 0; color: #e1f7f5; }
+    main { width: min(1200px, calc(100% - 2rem)); margin: 1.5rem auto 4rem; }
+    .toolbar {
+      display: flex;
+      gap: .75rem;
+      align-items: center;
+      flex-wrap: wrap;
+      padding: .9rem 1rem;
+      border: 1px solid var(--line);
+      background: var(--paper);
+    }
+    .toolbar input {
+      flex: 1 1 18rem;
+      min-width: 12rem;
+      padding: .65rem .75rem;
+      border: 1px solid #9aa8b3;
+      border-radius: .25rem;
+      font: inherit;
+    }
+    .status { color: var(--muted); font-size: .95rem; }
+    #examples { display: grid; gap: 1rem; margin-top: 1rem; }
+    article {
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: .35rem;
+      background: var(--paper);
+      box-shadow: 0 2px 8px #17212b12;
+    }
+    .pattern-heading {
+      margin: 1.75rem 0 .5rem;
+      color: var(--ink);
+      font-size: 1.45rem;
+    }
+    article h3 {
+      margin: 0;
+      padding: .85rem 1rem;
+      color: var(--ink);
+      background: var(--accent-soft);
+      font-size: 1.15rem;
+    }
+    article iframe {
+      display: block;
+      width: 100%;
+      min-height: 260px;
+      border: 0;
+      background: white;
+    }
+    .loading, .error { padding: 1.25rem; color: var(--muted); }
+    .error { color: #8a1c1c; background: #fff0f0; }
+    @media (prefers-reduced-motion: no-preference) {
+      article { animation: rise .35s ease both; }
+      @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>ARIA Authoring Practices Examples</h1>
+    <p>Interactive examples collected from the W3C ARIA Authoring Practices Guide. Each example runs in an isolated frame with its original example scripts and styles.</p>
+  </header>
+  <main>
+    <div class="toolbar">
+      <label for="filter">Filter examples</label>
+      <input id="filter" type="search" placeholder="Search by example name or source path">
+      <span id="status" class="status" role="status">Loading examples...</span>
+    </div>
+    <div id="examples">
+      <div class="loading">Fetching the current W3C example index...</div>
+    </div>
+  </main>
+  <script>
+    (() => {
+      'use strict';
+
+      const INDEX_URL = 'https://www.w3.org/WAI/ARIA/apg/patterns/';
+      const W3C_ROOT = 'https://www.w3.org/WAI/ARIA/apg/';
+      const ASSET_ROOT = 'https://cdn.jsdelivr.net/gh/w3c/aria-practices@main/content/';
+      const W3C_ASSET_PREFIX = 'https://www.w3.org/WAI/content-assets/wai-aria-practices/';
+      const MANIFEST_KEY = 'apg-example-manifest-v3';
+      const examples = document.querySelector('#examples');
+      const status = document.querySelector('#status');
+      const filter = document.querySelector('#filter');
+      let records = [];
+      // Cache shared asset text by absolute URL so the same file (e.g. shared/js/app.js)
+      // is fetched once total instead of once per example frame (avoids 429s from bursts
+      // of duplicate simultaneous requests across all frames).
+      const assetTextCache = new Map();
+      function fetchTextCached(url) {
+        if (!assetTextCache.has(url)) {
+          assetTextCache.set(url, fetch(url).then((response) => response.ok ? response.text() : '').catch(() => ''));
+        }
+        return assetTextCache.get(url);
+      }
+      function escapeScriptClose(text) {
+        return text.replace(/<\/script/gi, '<\\/script');
+      }
+
+      function absoluteAssetUrl(sourcePath, assetPath, root = W3C_ROOT) {
+        try {
+          const webPath = sourcePath.replace(/^content\//, '');
+          const resolved = new URL(assetPath, root + webPath);
+          if (resolved.href.startsWith(W3C_ASSET_PREFIX)) {
+            return ASSET_ROOT + resolved.href.slice(W3C_ASSET_PREFIX.length);
+          }
+          if (resolved.href.startsWith(W3C_ROOT)) {
+            return ASSET_ROOT + resolved.href.slice(W3C_ROOT.length);
+          }
+          return resolved.href;
+        } catch {
+          return assetPath;
+        }
+      }
+
+      function rewriteAssets(root, sourcePath) {
+        for (const attribute of ['src', 'href']) {
+          const value = root.getAttribute?.(attribute);
+          if (value && !value.startsWith('#') && !/^(data:|https?:|mailto:|javascript:)/i.test(value)) {
+            root.setAttribute(attribute, absoluteAssetUrl(sourcePath, value));
+          }
+        }
+        root.querySelectorAll('[src], [href]').forEach((element) => {
+          for (const attribute of ['src', 'href']) {
+            const value = element.getAttribute(attribute);
+            if (!value || value.startsWith('#') || /^(data:|https?:|mailto:|javascript:)/i.test(value)) continue;
+            element.setAttribute(attribute, absoluteAssetUrl(sourcePath, value));
+          }
+        });
+        root.querySelectorAll('img[src]').forEach((image) => {
+          if (image.src.startsWith('https://www.w3.org/WAI/content-images/')) image.remove();
+        });
+      }
+
+      function removeCodePenControls(root) {
+        root.querySelectorAll('a, button, input').forEach((element) => {
+          const text = (element.textContent || '').trim().toLowerCase();
+          const href = (element.getAttribute('href') || '').toLowerCase();
+          if (text.includes('open in codepen') || href.includes('codepen.io')) {
+            element.closest('p, li, div')?.remove() || element.remove();
+          }
+        });
+      }
+
+      function findExampleSection(document) {
+        return [...document.querySelectorAll('section')].find((section) => {
+          const heading = section.querySelector('h2, h3, h4');
+          return heading && heading.textContent.trim().toLowerCase() === 'example';
+        });
+      }
+
+      async function buildFrameDocument(sourceDocument, section, sourcePath, title) {
+        const sectionClone = section.cloneNode(true);
+        const heading = sectionClone.querySelector('h2, h3, h4');
+        if (heading) heading.textContent = title;
+        removeCodePenControls(sectionClone);
+        sectionClone.querySelectorAll('script[src]').forEach((script) => script.remove());
+        rewriteAssets(sectionClone, sourcePath);
+
+        const styleLinks = [...sourceDocument.querySelectorAll('link[rel="stylesheet"]')]
+          .filter((element) => !element.href.includes('/WAI/assets/') && !element.href.endsWith('/styles.css'));
+        const inlineStyleEls = [...sourceDocument.querySelectorAll('style')];
+        const linkedStyles = (await Promise.all(styleLinks.map(async (element) => {
+          const url = absoluteAssetUrl(sourcePath, element.getAttribute('href'));
+          return `<style>${await fetchTextCached(url)}</style>`;
+        }))).join('\n');
+        const styles = linkedStyles + '\n' + inlineStyleEls.map((element) => element.outerHTML).join('\n');
+        const scriptEls = [...sourceDocument.querySelectorAll('script[src]')]
+          .filter((element) => {
+            const scriptUrl = element.src.toLowerCase();
+            return !scriptUrl.includes('/wai/assets/')
+              && !scriptUrl.endsWith('/shared/js/app.js')
+              && !scriptUrl.endsWith('/shared/js/skipto.js')
+              && !scriptUrl.endsWith('/shared/js/highlight.pack.js')
+              && !scriptUrl.endsWith('/shared/js/read-this-first.js');
+          });
+        const scripts = (await Promise.all(scriptEls.map(async (element) => {
+          const url = absoluteAssetUrl(sourcePath, element.getAttribute('src'));
+          if (element.getAttribute('type') === 'module') return `<script type="module" src="${url}"><` + '/script>';
+          const scriptText = await fetchTextCached(url);
+          const compatibleScriptText = scriptText.replace(
+            "choiceElem.setAttribute('aria-current', 'true');",
+            "choiceElem?.setAttribute('aria-current', 'true');"
+          );
+          return `<script>${escapeScriptClose(compatibleScriptText)}<` + '/script>';
+        }))).join('\n');
+        const inlineScripts = [...sectionClone.querySelectorAll('script:not([src])')]
+          .filter((element) => ['', 'text/javascript', 'application/javascript', 'module'].includes((element.getAttribute('type') || '').toLowerCase()))
+          .map((element) => `<script${element.getAttribute('type') === 'module' ? ' type="module"' : ''}>${escapeScriptClose(element.textContent)}<` + '/script>')
+          .join('\n');
+
+        return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${styles}<style>body{margin:1rem} .example-header{display:none}</style></head><body>${sectionClone.outerHTML}${scripts}${inlineScripts}<script>window.addEventListener('load',()=>parent.postMessage({type:'apg-example-ready',height:document.documentElement.scrollHeight},'*'));<` + '/script></body></html>';
+      }
+
+      function render() {
+        const query = filter.value.trim().toLowerCase();
+        examples.replaceChildren();
+        const visible = records.filter((record) => `${record.title} ${record.path}`.toLowerCase().includes(query));
+        let currentPatternPath = '';
+        visible.forEach((record) => {
+          if (record.patternPath !== currentPatternPath) {
+            currentPatternPath = record.patternPath;
+            const patternHeading = document.createElement('h2');
+            patternHeading.className = 'pattern-heading';
+            patternHeading.textContent = record.patternTitle;
+            examples.append(patternHeading);
+          }
+          const article = document.createElement('article');
+          article.dataset.search = `${record.title} ${record.path}`.toLowerCase();
+          const heading = document.createElement('h3');
+          const pageLink = document.createElement('a');
+          pageLink.href = new URL(record.path, W3C_ROOT).href;
+          pageLink.target = '_blank';
+          pageLink.rel = 'noopener noreferrer';
+          pageLink.textContent = record.title;
+          heading.append(pageLink);
+          article.append(heading);
+          const frame = document.createElement('iframe');
+          frame.title = record.title;
+          frame.loading = 'lazy';
+          article.append(frame);
+          // A real (non-opaque) origin is required so the frame's cross-origin asset
+          // requests aren't blocked as ERR_BLOCKED_BY_RESPONSE.NotSameOrigin; srcdoc
+          // frames get an opaque origin, but blob: URLs inherit this page's origin.
+          const blobUrl = URL.createObjectURL(new Blob([record.frameDocument], { type: 'text/html' }));
+          frame.addEventListener('load', () => {
+            try {
+              const height = frame.contentDocument.documentElement.scrollHeight;
+              frame.style.height = `${Math.max(260, height + 20)}px`;
+            } catch { frame.style.height = '500px'; }
+            URL.revokeObjectURL(blobUrl);
+          });
+          frame.src = blobUrl;
+          examples.append(article);
+        });
+        status.textContent = `${visible.length} of ${records.length} examples`;
+      }
+
+      async function getExamplePaths() {
+        const cached = sessionStorage.getItem(MANIFEST_KEY);
+        if (cached) return JSON.parse(cached);
+        const indexResponse = await fetch(INDEX_URL);
+        if (!indexResponse.ok) throw new Error(`W3C patterns index request failed: ${indexResponse.status}`);
+        const indexDocument = new DOMParser().parseFromString(await indexResponse.text(), 'text/html');
+        const patternPaths = [...new Set([...indexDocument.querySelectorAll('#patterns a[href]')]
+          .map((link) => new URL(link.getAttribute('href'), INDEX_URL).pathname)
+          .filter((path) => /\/patterns\/[^/]+\/$/.test(path))
+          .map((path) => path.replace(/^\/WAI\/ARIA\/apg\//, '')))];
+        const manifest = [];
+        for (const patternPath of patternPaths) {
+          const response = await fetch(W3C_ROOT + patternPath);
+          if (!response.ok) continue;
+          const patternDocument = new DOMParser().parseFromString(await response.text(), 'text/html');
+          const patternTitle = patternDocument.querySelector('h1')?.textContent.trim();
+          if (!patternTitle) continue;
+          const examplePaths = [...new Set([...patternDocument.querySelectorAll('a[href]')]
+            .map((link) => new URL(link.getAttribute('href'), W3C_ROOT + patternPath).pathname)
+            .filter((path) => /\/patterns\/[^/]+\/examples\/[^/]+\/$/.test(path))
+            .map((path) => path.replace(/^\/WAI\/ARIA\/apg\//, '')))];
+          examplePaths.forEach((path) => manifest.push({ path, patternPath, patternTitle }));
+        }
+        const orderedManifest = patternPaths.flatMap((patternPath) => manifest.filter((record) => record.patternPath === patternPath));
+        if (orderedManifest.length) sessionStorage.setItem(MANIFEST_KEY, JSON.stringify(orderedManifest));
+        return orderedManifest;
+      }
+
+      async function load() {
+        const manifest = await getExamplePaths();
+        status.textContent = `Fetching ${manifest.length} example pages...`;
+        const loaded = [];
+        let nextIndex = 0;
+        async function worker() {
+          while (nextIndex < manifest.length) {
+            const entry = manifest[nextIndex++];
+            const path = entry.path;
+            const response = await fetch(W3C_ROOT + path);
+            if (!response.ok) continue;
+            const html = await response.text();
+            const sourceDocument = new DOMParser().parseFromString(html, 'text/html');
+            const section = findExampleSection(sourceDocument);
+            const title = sourceDocument.querySelector('h1')?.textContent.trim();
+            if (section && title) loaded.push({ ...entry, title, frameDocument: await buildFrameDocument(sourceDocument, section, path, title) });
+          }
+        }
+        await Promise.all(Array.from({ length: 2 }, worker));
+        const loadedByPath = new Map(loaded.filter(Boolean).map((record) => [record.path, record]));
+        records = manifest.map((entry) => loadedByPath.get(entry.path)).filter(Boolean);
+        render();
+      }
+
+      filter.addEventListener('input', render);
+      load().catch((error) => {
+        examples.innerHTML = `<div class="error">Unable to load the W3C examples: ${error.message}</div>`;
+        status.textContent = 'Loading failed';
+      });
+    })();
+  </script>
+</body>
+</html>
