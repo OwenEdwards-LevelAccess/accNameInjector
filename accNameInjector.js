@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AccName/AccDescription/AccRole/AccState/AccAttributes Injector
 // @namespace    http://tampermonkey.net/
-// @version      7.1.2
+// @version      8.2.0
 // @downloadURL  https://raw.githubusercontent.com/OwenEdwards-LevelAccess/accNameInjector/refs/heads/main/accNameInjector.js
 // @updateURL    https://raw.githubusercontent.com/OwenEdwards-LevelAccess/accNameInjector/refs/heads/main/accNameInjector.js
 // @description  Adds live-updating accName and accDescription properties to every DOM element, based on core implementation of Accessible Name and Description Computation 1.2: https://w3c.github.io/aria/accname/. Also adds accRole, accState, and accAttributes properties, and document.deepActiveElement for pages with iframes.
@@ -445,7 +445,7 @@
             context.inLabelledBy || context.inLabel;
 
         if (nameFromContent || context.isDescendant) {
-            let content = getPseudoContent(node, '::before');
+            let beforeContent = getPseudoContent(node, '::before');
             const childParts = [];
             getRenderedChildNodes(node).forEach((child) => {
                 if (child.nodeType === Node.TEXT_NODE) {
@@ -461,9 +461,11 @@
                     }));
                 }
             });
-            content += childParts.join(' ');
-            content += getPseudoContent(node, '::after');
-            content = flatString(content);
+            const childContent = flatString(childParts.join(' '));
+            const afterContent = getPseudoContent(node, '::after');
+            if (flatString(beforeContent) === childContent) beforeContent = '';
+            const uniqueAfterContent = flatString(afterContent) === childContent ? '' : afterContent;
+            const content = flatString(beforeContent + childContent + uniqueAfterContent);
             if (content) return content;
         }
 
@@ -626,62 +628,126 @@
     }
 
 
-    const INTERESTING_HTML_ATTRIBUTES = new Set([
-        'accesskey', 'autocapitalize', 'autofocus', 'contenteditable',
-        'dir', 'dirname', 'draggable', 'enterkeyhint', 'exportparts', 'hidden',
-        'inert', 'is', 'lang', 'nonce', 'part', 'popover', 'slot', 'spellcheck',
-        'translate', 'virtualkeyboardpolicy', 'writingsuggestions',
-        'placeholder', 'readonly', 'disabled', 'size', 'multiple', 'min', 'max', 
-        'type', 'href',
-        // NOT: 'id', 'class', 'style', 'name', 'value', 'title', 'alt', 'tabindex', 'role'
+    const HTML_GLOBAL_ATTRIBUTES = new Set([
+        'accesskey', 'autocapitalize', 'autofocus', 'contenteditable', 'dirname',
+        'draggable', 'enterkeyhint', 'exportparts', 'hidden', 'inert', 'is', 'lang',
+        'nonce', 'part', 'popover', 'spellcheck', 'translate',
+        'virtualkeyboardpolicy', 'writingsuggestions',
+        // NOT: 'dir', 'slot'
     ]);
 
-    const INTERESTING_ARIA_ATTRIBUTES = new Set([
-        'aria-haspopup', 'aria-valuemin', 'aria-valuemax', 'aria-placeholder', 
-        'aria-readonly', 'aria-disabled', 'aria-size', 'aria-multiple', 'aria-min', 
-        'aria-max', 'aria-setsize', 'aria-posinset', 'aria-autocomplete', 'aria-modal',
-        'aria-orientation', 'aria-required', 'aria-sort',
-        // NOT: 'aria-label', 'aria-labelledby', 'aria-describedby', 'aria-description',
-        // 'aria-controls', 'aria-owns', 'aria-details', 'aria-errormessage', 'aria-activedescendant',
-        // 'aria-checked', 'aria-expanded', 'aria-pressed', 'aria-selected', 'aria-valuenow', 'aria-valuetext', 'aria-invalid'
+    const HTML_ATTRIBUTES_BY_TAG = new Map([
+        ['a', ['download', 'href', 'hreflang', 'media', 'ping', 'referrerpolicy', 'rel', 'target', 'type']],
+        ['area', ['alt', 'coords', 'download', 'href', 'hreflang', 'media', 'ping', 'referrerpolicy', 'rel', 'shape', 'target', 'type']],
+        ['audio', ['autoplay', 'controls', 'crossorigin', 'loop', 'muted', 'preload', 'src']],
+        ['button', ['command', 'commandfor', 'disabled', 'form', 'formaction', 'formenctype', 'formmethod', 'formnovalidate', 'formtarget', 'popover', 'popovertarget', 'popovertargetaction', 'type']],
+        ['canvas', ['height', 'width']],
+        ['col', ['span']],
+        ['colgroup', ['span']],
+        ['details', ['open']],
+        ['dialog', ['open']],
+        ['embed', ['height', 'src', 'type', 'width']],
+        ['form', ['accept-charset', 'action', 'autocomplete', 'enctype', 'method', 'novalidate', 'rel', 'target']],
+        ['iframe', ['allow', 'allowfullscreen', 'credentialless', 'height', 'loading', 'name', 'referrerpolicy', 'sandbox', 'src', 'srcdoc', 'width']],
+        ['img', ['alt', 'crossorigin', 'decoding', 'fetchpriority', 'height', 'ismap', 'loading', 'referrerpolicy', 'sizes', 'src', 'srcset', 'usemap', 'width']],
+        ['input', ['accept', 'alt', 'autocomplete', 'capture', 'checked', 'dirname', 'disabled', 'form', 'formaction', 'formenctype', 'formmethod', 'formnovalidate', 'formtarget', 'height', 'list', 'max', 'maxlength', 'min', 'minlength', 'multiple', 'pattern', 'placeholder', 'readonly', 'required', 'size', 'src', 'step', 'type', 'width']],
+        ['li', ['value']],
+        ['link', ['as', 'blocking', 'color', 'crossorigin', 'disabled', 'fetchpriority', 'href', 'hreflang', 'imagesizes', 'imagesrcset', 'integrity', 'media', 'referrerpolicy', 'rel', 'sizes', 'type']],
+        ['map', ['name']],
+        ['meta', ['charset', 'content', 'http-equiv', 'media', 'name']],
+        ['meter', ['high', 'low', 'max', 'min', 'optimum', 'value']],
+        ['object', ['data', 'form', 'height', 'name', 'type', 'usemap', 'width']],
+        ['ol', ['reversed', 'start', 'type']],
+        ['option', ['disabled', 'label', 'selected', 'value']],
+        ['progress', ['max', 'value']],
+        ['script', ['async', 'blocking', 'crossorigin', 'defer', 'fetchpriority', 'integrity', 'nomodule', 'referrerpolicy', 'src', 'type']],
+        ['select', ['autocomplete', 'disabled', 'form', 'multiple', 'required', 'size']],
+        ['source', ['height', 'media', 'sizes', 'src', 'srcset', 'type', 'width']],
+        ['style', ['blocking', 'media']],
+        ['td', ['colspan', 'headers', 'rowspan']],
+        ['textarea', ['autocomplete', 'cols', 'dirname', 'disabled', 'form', 'maxlength', 'minlength', 'placeholder', 'readonly', 'required', 'rows', 'wrap']],
+        ['th', ['abbr', 'colspan', 'headers', 'rowspan', 'scope']],
+        ['track', ['default', 'kind', 'label', 'srclang', 'src']],
+        ['video', ['autoplay', 'controls', 'crossorigin', 'height', 'loop', 'muted', 'playsinline', 'poster', 'preload', 'src', 'width']]
     ]);
+
+    const ARIA_GLOBAL_ATTRIBUTES = new Set([
+        'aria-current', 'aria-disabled',
+        'aria-grabbed', 'aria-haspopup',
+        'aria-keyshortcuts', 
+        'aria-live', 'aria-atomic', 'aria-busy', 'aria-relevant',
+        // NOT 'aria-controls', 'aria-owns', 'aria-flowto', 'aria-activedescendant', 'aria-details', 'aria-errormessage' - only show IDs, which are not useful
+        //   'aria-label', 'aria-labelledby' - handled by accName
+        //   'aria-description', 'aria-describedby', 'aria-roledescription' - handled by accDescription
+        //   'aria-invalid' - part of accSState
+        //   'aria-hidden' - handled separately in accAttributes, because of the way it propagates from ancestor elements
+    ]);
+
+    const ARIA_ATTRIBUTES_BY_ROLE = new Map([
+        ['button', []], // NOT 'aria-expanded', 'aria-pressed' - reported in accState
+        ['columnheader', ['aria-colindex', 'aria-colspan', 'aria-rowindex', 'aria-rowspan', 'aria-selected', 'aria-sort']], // 'aria-sort' is reported in accState only for ascending/descending; other values remain accAttributes
+        ['checkbox', ['aria-required']], // NOT 'aria-checked' - reported in accState
+        ['combobox', ['aria-autocomplete', 'aria-haspopup', 'aria-multiselectable', 'aria-placeholder', 'aria-readonly', 'aria-required']], // NOT 'aria-expanded' - reported in accState; 'aria-controls', 'aria-activedescendant' only show IDs, which are not useful
+        ['grid', ['aria-colcount', 'aria-multiselectable', 'aria-rowcount']],
+        ['gridcell', ['aria-colindex', 'aria-colspan', 'aria-rowindex', 'aria-rowspan']], // NOT 'aria-selected' - reported in accState
+        ['heading', ['aria-level']],
+        ['listbox', ['aria-multiselectable', 'aria-orientation', 'aria-readonly', 'aria-required']], // NOT 'aria-activedescendant' - only show IDs, which are not useful
+        ['menu', ['aria-orientation']],
+        ['menuitemcheckbox', []], // NOT 'aria-checked' - reported in accState
+        ['menuitemradio', []], // NOT 'aria-checked' - reported in accState
+        ['meter', ['aria-valuemax', 'aria-valuemin']], // NOT 'aria-valuenow', 'aria-valuetext' - reported in accState
+        ['option', ['aria-checked', 'aria-posinset', 'aria-setsize']], // NOT 'aria-selected' - reported in accState
+        ['progressbar', ['aria-valuemax', 'aria-valuemin']], // NOT 'aria-valuenow', 'aria-valuetext' - reported in accState
+        ['radio', ['aria-posinset', 'aria-required', 'aria-setsize']], // NOT 'aria-checked' - reported in accState
+        ['row', ['aria-colindex', 'aria-rowindex']], // NOT 'aria-selected' - reported in accState
+        ['rowheader', ['aria-colindex', 'aria-colspan', 'aria-rowindex', 'aria-rowspan', 'aria-selected', 'aria-sort']], // 'aria-sort' is reported in accState only for ascending/descending; other values remain accAttributes
+        ['scrollbar', ['aria-orientation', 'aria-valuemax', 'aria-valuemin']], // NOT 'aria-valuenow', 'aria-valuetext' - reported in accState
+        ['separator', ['aria-orientation', 'aria-valuemax', 'aria-valuemin']], // NOT 'aria-valuenow', 'aria-valuetext' - reported in accState
+        ['slider', ['aria-orientation', 'aria-valuemax', 'aria-valuemin']], // NOT 'aria-valuenow', 'aria-valuetext' - reported in accState
+        ['spinbutton', ['aria-valuemax', 'aria-valuemin']], // NOT 'aria-valuenow', 'aria-valuetext' - reported in accState
+        ['switch', []], // NOT 'aria-checked' - reported in accState
+        ['tab', ['aria-expanded', 'aria-setsize', 'aria-posinset']], // NOT 'aria-selected' - reported in accState; 'aria-controls' only shows IDs, which are not useful
+        ['tablist', ['aria-level', 'aria-multiselectable', 'aria-orientation']],
+        ['tabpanel', ['aria-labelledby']],
+        ['textbox', ['aria-multiline', 'aria-placeholder', 'aria-readonly', 'aria-required']],
+        ['searchbox', ['aria-autocomplete', 'aria-multiline', 'aria-placeholder', 'aria-readonly', 'aria-required']],
+        ['treegrid', ['aria-colcount', 'aria-multiselectable', 'aria-rowcount']],
+        ['treeitem', ['aria-level', 'aria-posinset', 'aria-setsize']] // NOT 'aria-checked', 'aria-expanded', 'aria-selected' - reported in accState
+    ]);
+
+    function getRelevantAttributeNames(el) {
+        const tag = el.tagName.toLowerCase();
+        const role = getAccessibleRole(el).split(' ')[0];
+        const names = new Set(HTML_GLOBAL_ATTRIBUTES);
+        (HTML_ATTRIBUTES_BY_TAG.get(tag) || []).forEach((name) => names.add(name.trim()));
+        ARIA_GLOBAL_ATTRIBUTES.forEach((name) => names.add(name));
+        (ARIA_ATTRIBUTES_BY_ROLE.get(role) || []).forEach((name) => names.add(name));
+        return names;
+    }
 
     function getAccessibleAttributes(el) {
         try {
-            // If we wanted a list of attributes to *exclude*:
-            // const excludedAttributes = new Set([
-            //     'class', 'style', 'id', 'name', 'value', 'alt', 'title', 'target', 
-            //     'tabindex', 'role',
-            //     'aria-label', 'aria-labelledby', 'aria-describedby', 'aria-description',
-            //     'aria-controls', 'aria-owns', 'aria-details', 'aria-errormessage',
-            //     'aria-activedescendant',
-            //     'aria-checked', 'aria-expanded', 'aria-pressed', 'aria-selected',
-            //     'aria-valuenow', 'aria-valuetext',
-            // ]);
-            // const attributes = Object.fromEntries(Array.from(el.attributes)
-            //     .filter((attribute) =>
-            //         !excludedAttributes.has(attribute.name) && !attribute.name.startsWith('data-'))
-            //     .map((attribute) => [attribute.name, attribute.value]));
+            const relevantAttributeNames = getRelevantAttributeNames(el);
+            const attributes = Object.fromEntries(Array.from(el.attributes)
+                .filter((attribute) =>
+                    attribute.name !== 'type' ||
+                    !(el.tagName.toLowerCase() === 'input' &&
+                        ['checkbox', 'radio', 'range', 'number', 'button'].includes(
+                            (el.getAttribute('type') || 'text').toLowerCase())) &&
+                    !(el.tagName.toLowerCase() === 'button' &&
+                        (el.getAttribute('type') || 'submit').toLowerCase() === 'button'))
+                .filter((attribute) =>
+                    attribute.name !== 'aria-sort' ||
+                    !['ascending', 'descending'].includes(attribute.value.toLowerCase()))
+                .filter((attribute) =>
+                    attribute.name !== 'aria-busy' || attribute.value.toLowerCase() !== 'true')
+                .filter((attribute) => relevantAttributeNames.has(attribute.name))
+                .map((attribute) => [attribute.name, attribute.value]));
 
-                const omitInputType = el.tagName.toLowerCase() === 'input' &&
-                    ['checkbox', 'radio', 'range', 'number', 'button'].includes(
-                        (el.getAttribute('type') || 'text').toLowerCase());
-                const omitButtonType = el.tagName.toLowerCase() === 'button' &&
-                    (el.getAttribute('type') || 'submit').toLowerCase() === 'button';
-                const attributes = Object.fromEntries(Array.from(el.attributes)
-                    .filter((attribute) =>
-                        attribute.name !== 'type' || (!omitInputType && !omitButtonType))
-                    .filter((attribute) =>
-                        attribute.name !== 'aria-sort' ||
-                        !['ascending', 'descending'].includes(attribute.value.toLowerCase()))
-                    .filter((attribute) =>
-                        INTERESTING_HTML_ATTRIBUTES.has(attribute.name) || INTERESTING_ARIA_ATTRIBUTES.has(attribute.name))
-                    .map((attribute) => [attribute.name, attribute.value]));
-
-                const shadowSemanticElement = getShadowSemanticElement(el);
-                if (shadowSemanticElement) {
-                    Object.assign(attributes, getAccessibleAttributes(shadowSemanticElement));
-                }
+            const shadowSemanticElement = getShadowSemanticElement(el);
+            if (shadowSemanticElement) {
+                Object.assign(attributes, getAccessibleAttributes(shadowSemanticElement));
+            }
 
             // Check if any ancestor has aria-hidden="true" and propagate it to the attributes.
             let parent = el;
@@ -696,7 +762,7 @@
             return attributes;
 
         } catch (e) {
-            return {};
+            return {error: `getAccessibleAttributes failed: ${e.message}`};
         }
     }
 
@@ -823,30 +889,26 @@
     }
 
     // Function to handle retrieving the currently focused element, even if it's inside nested iframes.
-    // USAGE:
-    // `getDeepActiveElement()?.accName`
-    // `getDeepActiveElement()?.accRole`
     function getDeepActiveElement() {
-    let activeElement = document.activeElement;
+        let activeElement = document.activeElement;
 
-    // Loop as long as the current active element is an iframe
-    while (activeElement && activeElement.tagName === 'IFRAME') {
-        try {
-        // Access the inner document's active element
-        const iframeDoc = activeElement.contentWindow.document;
-        activeElement = iframeDoc.activeElement;
-        } catch (e) {
-        // Security Error: The iframe is cross-origin
-        // console.warn("Cannot access cross-origin iframe:", activeElement);
-        break; 
+        // Loop as long as the current active element is an iframe
+        while (activeElement && activeElement.tagName === 'IFRAME') {
+            try {
+                // Access the inner document's active element
+                const iframeDoc = activeElement.contentWindow.document;
+                activeElement = iframeDoc.activeElement;
+            } catch (e) {
+                // Security Error: The iframe is cross-origin
+                // console.warn("Cannot access cross-origin iframe:", activeElement);
+                break; 
+            }
         }
+
+        return activeElement;
     }
 
-    return activeElement;
-    }
-
-    // window.getDeepActiveElement = getDeepActiveElement;
-
+    // Expose the deepActiveElement property on the document object
     Object.defineProperty(document, 'deepActiveElement', {
         configurable: true,
         get() {
