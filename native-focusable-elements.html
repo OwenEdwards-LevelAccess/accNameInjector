@@ -1,0 +1,436 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>Native Focusable HTML Elements</title>
+<style>
+  :root {
+    color-scheme: light;
+    --ink: #17212b;
+    --muted: #5c6873;
+    --line: #d9e0e6;
+    --paper: #ffffff;
+    --wash: #f3f6f8;
+    --accent: #005a70;
+    --accent-soft: #dff2f5;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    color: var(--ink);
+    background: var(--wash);
+    font: 16px/1.5 system-ui, sans-serif;
+  }
+  body:focus { outline: none; }
+  header {
+    padding: 2.5rem max(1rem, calc((100vw - 1000px) / 2));
+    color: white;
+    background: linear-gradient(135deg, #003b4a, #007b80);
+  }
+  header h1 { margin: 0 0 .5rem; font-size: clamp(1.8rem, 4vw, 3rem); }
+  header p { max-width: 780px; margin: 0; color: #e1f7f5; }
+  main { width: min(1000px, calc(100% - 2rem)); margin: 1.5rem auto 4rem; }
+  section {
+    margin-bottom: 1.5rem;
+    padding: 1rem 1.25rem 1.25rem;
+    border: 1px solid var(--line);
+    border-radius: .35rem;
+    background: var(--paper);
+    box-shadow: 0 2px 8px #17212b12;
+  }
+  section h2 {
+    margin: 0 0 .85rem;
+    padding-bottom: .5rem;
+    border-bottom: 1px solid var(--line);
+    font-size: 1.2rem;
+  }
+  section h2 a { color: var(--accent); text-decoration: none; }
+  section h2 a:hover, section h2 a:focus { text-decoration: underline; }
+  .field { margin-bottom: .85rem; }
+  .field:last-child { margin-bottom: 0; }
+  label { display: block; margin-bottom: .3rem; font-weight: 600; }
+  input, select, textarea {
+    padding: .5rem .6rem;
+    border: 1px solid #9aa8b3;
+    border-radius: .25rem;
+    font: inherit;
+    background: white;
+  }
+  input[type="checkbox"], input[type="radio"] {
+    margin-right: .4rem;
+    vertical-align: middle;
+  }
+  .choice { display: block; margin-bottom: .4rem; font-weight: normal; }
+  fieldset {
+    margin: 0;
+    padding: .75rem .9rem;
+    border: 1px solid #9aa8b3;
+    border-radius: .25rem;
+  }
+  legend { padding: 0 .3rem; font-weight: 600; }
+  button {
+    padding: .55rem 1rem;
+    border: 1px solid var(--accent);
+    border-radius: .25rem;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button:hover { background: #c9ebef; }
+  .button-row { display: flex; gap: .6rem; flex-wrap: wrap; }
+  output { margin-left: .6rem; font-family: monospace; color: var(--muted); }
+  .required-note { color: var(--muted); font-size: .9rem; margin: 0 0 1rem; }
+  a.text-link { color: var(--accent); }
+  dialog {
+    padding: 1.25rem 1.5rem;
+    border: 1px solid var(--line);
+    border-radius: .4rem;
+    box-shadow: 0 8px 24px #17212b33;
+    max-width: 420px;
+    width: min(420px, 90vw);
+  }
+  dialog::backdrop { background: #17212b66; }
+  dialog h2 { margin-top: 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="pageTop" tabindex="-1">Native Focusable HTML Elements</h1>
+  <p>A reference page demonstrating every native HTML element that can receive keyboard focus, each labeled using plain HTML semantics (no ARIA).</p>
+</header>
+<main>
+
+  <section id="a-section">
+    <h2><a href="https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/a">&lt;a&gt;</a></h2>
+    <p>
+      <a class="text-link" href="https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/a">Read the MDN documentation for links</a><br>
+      <a class="text-link" href="https://www.w3.org/WAI/">Visit the W3C Web Accessibility Initiative</a><br>
+      <a class="text-link" href="#pageTop">Jump back to the top of the page</a>
+    </p>
+  </section>
+
+  <section id="audio-section">
+    <h2><a href="https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/audio">&lt;audio&gt;</a></h2>
+    <audio controls preload="none" title="T. rex roar sound effect">
+      <source src="https://interactive-examples.mdn.mozilla.net/media/cc0-audio/t-rex-roar.mp3" type="audio/mpeg">
+      Your browser does not support the audio element.
+    </audio>
+  </section>
+
+  <section id="button-section">
+    <h2><a href="https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/button">&lt;button&gt;</a></h2>
+    <div class="button-row">
+      <button type="button">Play sound</button>
+      <button type="button">Save draft</button>
+      <button type="button">Download report</button>
+    </div>
+  </section>
+
+  <section id="details-section">
+    <h2><a href="https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/details">&lt;details&gt;</a></h2>
+    <details>
+      <summary>Shipping information</summary>
+      <p>Orders are usually shipped within two business days and delivered within a week.</p>
+      <p>
+        <a class="text-link" href="#delivery-form">Schedule a delivery</a><br>
+        <a class="text-link" href="https://www.usps.com/ship/preparing-shipments.htm">Read the shipment preparation guide</a><br>
+        <a class="text-link" href="https://www.usps.com/manage/track-and-confirm.htm">Track an existing order</a>
+      </p>
+    </details>
+  </section>
+
+  <section id="dialog-section">
+    <h2><a href="https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/dialog">&lt;dialog&gt;</a></h2>
+    <button type="button" id="open-dialog-btn">Open contact dialog</button>
+    <dialog id="contact-dialog">
+      <form method="dialog">
+        <h2>Send a message</h2>
+        <div class="field">
+          <label for="dialog-subject">Subject</label>
+          <input type="text" id="dialog-subject" name="dialog-subject">
+        </div>
+        <div class="field">
+          <label for="dialog-message">Message</label>
+          <textarea id="dialog-message" name="dialog-message" rows="3"></textarea>
+        </div>
+        <div class="button-row">
+          <button type="submit" value="cancel">Cancel</button>
+          <button type="submit" value="submit">Send message</button>
+        </div>
+      </form>
+    </dialog>
+  </section>
+
+  <section id="checkbox-section">
+    <h2><a href="https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/input/checkbox">&lt;input type="checkbox"&gt;</a></h2>
+    <fieldset>
+      <legend>Favorite fruits</legend>
+      <span class="choice"><input type="checkbox" id="fruit-apple" name="fruit" value="apple"><label for="fruit-apple" style="display:inline;font-weight:normal;">Apple</label></span>
+      <span class="choice"><input type="checkbox" id="fruit-banana" name="fruit" value="banana"><label for="fruit-banana" style="display:inline;font-weight:normal;">Banana</label></span>
+      <span class="choice"><input type="checkbox" id="fruit-grapes" name="fruit" value="grapes"><label for="fruit-grapes" style="display:inline;font-weight:normal;">Grapes</label></span>
+      <span class="choice"><input type="checkbox" id="fruit-orange" name="fruit" value="orange"><label for="fruit-orange" style="display:inline;font-weight:normal;">Orange</label></span>
+    </fieldset>
+  </section>
+
+  <section id="color-section">
+    <h2><a href="https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/input/color">&lt;input type="color"&gt;</a></h2>
+    <div class="field">
+      <label for="favorite-color">Favorite color</label>
+      <input type="color" id="favorite-color" name="favorite-color" value="#005a70">
+      <output for="favorite-color" id="favorite-color-value">#005a70</output>
+    </div>
+  </section>
+
+  <section id="date-section">
+    <h2><a href="https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/input/date">&lt;input type="date"&gt;</a></h2>
+    <div class="field">
+      <label for="birth-date">Date of birth</label>
+      <input type="date" id="birth-date" name="birth-date">
+    </div>
+  </section>
+
+  <section id="datetime-local-section">
+    <h2><a href="https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/input/datetime-local">&lt;input type="datetime-local"&gt;</a></h2>
+    <div class="field">
+      <label for="appointment-time">Appointment date and time</label>
+      <input type="datetime-local" id="appointment-time" name="appointment-time">
+    </div>
+  </section>
+
+  <section id="email-section">
+    <h2><a href="https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/input/email">&lt;input type="email"&gt;</a></h2>
+    <div class="field">
+      <label for="contact-email">Email address</label>
+      <input type="email" id="contact-email" name="contact-email">
+    </div>
+  </section>
+
+  <section id="file-section">
+    <h2><a href="https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/input/file">&lt;input type="file"&gt;</a></h2>
+    <div class="field">
+      <label for="attachment">Attach a file</label>
+      <input type="file" id="attachment" name="attachment">
+    </div>
+  </section>
+
+  <section id="month-section">
+    <h2><a href="https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/input/month">&lt;input type="month"&gt;</a></h2>
+    <div class="field">
+      <label for="billing-month">Billing month</label>
+      <input type="month" id="billing-month" name="billing-month">
+    </div>
+  </section>
+
+  <section id="number-section">
+    <h2><a href="https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/input/number">&lt;input type="number"&gt;</a></h2>
+    <div class="field">
+      <label for="quantity">Quantity</label>
+      <input type="number" id="quantity" name="quantity" min="0" step="1" value="1">
+    </div>
+  </section>
+
+  <section id="password-section">
+    <h2><a href="https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/input/password">&lt;input type="password"&gt;</a></h2>
+    <div class="field">
+      <label for="account-password">Account password</label>
+      <input type="password" id="account-password" name="account-password">
+    </div>
+  </section>
+
+  <section id="radio-section">
+    <h2><a href="https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/input/radio">&lt;input type="radio"&gt;</a></h2>
+    <fieldset>
+      <legend>Favorite pet</legend>
+      <span class="choice"><input type="radio" id="pet-dog" name="pet" value="dog"><label for="pet-dog" style="display:inline;font-weight:normal;">Dog</label></span>
+      <span class="choice"><input type="radio" id="pet-cat" name="pet" value="cat"><label for="pet-cat" style="display:inline;font-weight:normal;">Cat</label></span>
+      <span class="choice"><input type="radio" id="pet-parrot" name="pet" value="parrot"><label for="pet-parrot" style="display:inline;font-weight:normal;">Parrot</label></span>
+      <span class="choice"><input type="radio" id="pet-lizard" name="pet" value="lizard"><label for="pet-lizard" style="display:inline;font-weight:normal;">Lizard</label></span>
+    </fieldset>
+  </section>
+
+  <section id="range-section">
+    <h2><a href="https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/input/range">&lt;input type="range"&gt;</a></h2>
+    <div class="field">
+      <label for="volume">Volume</label>
+      <input type="range" id="volume" name="volume" min="0" max="100" value="50">
+    </div>
+  </section>
+
+  <section id="search-section">
+    <h2><a href="https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/input/search">&lt;input type="search"&gt;</a></h2>
+    <div class="field">
+      <label for="site-search">Search this site</label>
+      <input type="search" id="site-search" name="site-search">
+    </div>
+  </section>
+
+  <section id="tel-section">
+    <h2><a href="https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/input/tel">&lt;input type="tel"&gt;</a></h2>
+    <div class="field">
+      <label for="phone-number">Phone number</label>
+      <input type="tel" id="phone-number" name="phone-number">
+    </div>
+  </section>
+
+  <section id="text-section">
+    <h2><a href="https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/input/text">&lt;input type="text"&gt;</a></h2>
+    <div class="field">
+      <label for="nickname">Nickname</label>
+      <input type="text" id="nickname" name="nickname">
+    </div>
+  </section>
+
+  <section id="time-section">
+    <h2><a href="https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/input/time">&lt;input type="time"&gt;</a></h2>
+    <div class="field">
+      <label for="alarm-time">Alarm time</label>
+      <input type="time" id="alarm-time" name="alarm-time">
+    </div>
+  </section>
+
+  <section id="url-section">
+    <h2><a href="https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/input/url">&lt;input type="url"&gt;</a></h2>
+    <div class="field">
+      <label for="portfolio-url">Portfolio website</label>
+      <input type="url" id="portfolio-url" name="portfolio-url">
+    </div>
+  </section>
+
+  <section id="week-section">
+    <h2><a href="https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/input/week">&lt;input type="week"&gt;</a></h2>
+    <div class="field">
+      <label for="vacation-week">Vacation week</label>
+      <input type="week" id="vacation-week" name="vacation-week">
+    </div>
+  </section>
+
+  <section id="optgroup-section">
+    <h2><a href="https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/optgroup">&lt;optgroup&gt;</a></h2>
+    <div class="field">
+      <label for="dino-select">Choose a dinosaur:</label>
+      <select id="dino-select">
+        <optgroup label="Theropods">
+          <option>Tyrannosaurus</option>
+          <option>Velociraptor</option>
+          <option>Deinonychus</option>
+        </optgroup>
+        <optgroup label="Sauropods">
+          <option>Diplodocus</option>
+          <option>Saltasaurus</option>
+          <option>Apatosaurus</option>
+        </optgroup>
+      </select>
+    </div>
+  </section>
+
+  <section id="select-section">
+    <h2><a href="https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/select">&lt;select&gt;</a></h2>
+    <div class="field">
+      <label for="shirt-size">Shirt size (single select)</label>
+      <select id="shirt-size" name="shirt-size">
+        <option value="s">Small</option>
+        <option value="m">Medium</option>
+        <option value="l">Large</option>
+        <option value="xl">Extra large</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="toppings">Pizza toppings (multiple select)</label>
+      <select id="toppings" name="toppings" multiple size="4">
+        <option value="mushroom">Mushroom</option>
+        <option value="pepperoni">Pepperoni</option>
+        <option value="olives">Olives</option>
+        <option value="pineapple">Pineapple</option>
+      </select>
+    </div>
+  </section>
+
+  <section id="textarea-section">
+    <h2><a href="https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/textarea">&lt;textarea&gt;</a></h2>
+    <div class="field">
+      <label for="comments">Comments</label>
+      <textarea id="comments" name="comments" rows="4"></textarea>
+    </div>
+  </section>
+
+  <section id="video-section">
+    <h2><a href="https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/video">&lt;video&gt;</a></h2>
+    <video controls preload="none" width="320" title="Time-lapse video of a flower blooming">
+      <source src="https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4" type="video/mp4">
+      Your browser does not support the video element.
+    </video>
+  </section>
+
+  <section id="form-section">
+    <h2>Example form: Delivery request</h2>
+    <p class="required-note">Fields marked with an asterisk (*) are required.</p>
+    <form id="delivery-form">
+      <div class="field">
+        <label for="full-name">Full name *</label>
+        <input type="text" id="full-name" name="full-name" required>
+      </div>
+      <div class="field">
+        <label for="delivery-email">Email address *</label>
+        <input type="email" id="delivery-email" name="delivery-email" required>
+      </div>
+      <div class="field">
+        <label for="street-address">Street address *</label>
+        <input type="text" id="street-address" name="street-address" required>
+      </div>
+      <div class="field">
+        <label for="address-line2">Apartment or suite number</label>
+        <input type="text" id="address-line2" name="address-line2">
+      </div>
+      <div class="field">
+        <label for="city">City</label>
+        <input type="text" id="city" name="city">
+      </div>
+      <div class="field">
+        <label for="postal-code">Postal code</label>
+        <input type="text" id="postal-code" name="postal-code">
+      </div>
+      <div class="button-row">
+        <button type="reset">Clear form</button>
+        <button type="submit">Schedule delivery</button>
+      </div>
+    </form>
+  </section>
+
+</main>
+<script>
+  (() => {
+    'use strict';
+    const openBtn = document.querySelector('#open-dialog-btn');
+    const dialog = document.querySelector('#contact-dialog');
+    const pageTop = document.querySelector('#pageTop');
+
+    const colorInput = document.querySelector('#favorite-color');
+    const colorValue = document.querySelector('#favorite-color-value');
+    colorInput.addEventListener('input', () => {
+      colorValue.textContent = colorInput.value;
+    });
+
+    openBtn.addEventListener('click', () => {
+      dialog.showModal();
+    });
+
+    dialog.addEventListener('close', () => {
+      if (dialog.returnValue === 'submit') {
+        pageTop.focus();
+      } else {
+        openBtn.focus();
+      }
+      dialog.returnValue = '';
+    });
+
+    document.querySelector('#delivery-form').addEventListener('submit', (event) => {
+      event.preventDefault();
+    });
+  })();
+</script>
+</body>
+</html>
