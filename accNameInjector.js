@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AccName/AccDescription/AccRole/AccState/AccAttributes Injector
 // @namespace    http://tampermonkey.net/
-// @version      8.2.0
+// @version      8.4.1
 // @downloadURL  https://raw.githubusercontent.com/OwenEdwards-LevelAccess/accNameInjector/refs/heads/main/accNameInjector.js
 // @updateURL    https://raw.githubusercontent.com/OwenEdwards-LevelAccess/accNameInjector/refs/heads/main/accNameInjector.js
 // @description  Adds live-updating accName and accDescription properties to every DOM element, based on core implementation of Accessible Name and Description Computation 1.2: https://w3c.github.io/aria/accname/. Also adds accRole, accState, and accAttributes properties, and document.deepActiveElement for pages with iframes.
@@ -15,8 +15,18 @@
 (function () {
     'use strict';
 
+    const isInIframe = (() => {
+        try {
+            return window.self !== window.top;
+        } catch (e) {
+            // Cross-origin frame: accessing window.top throws, which itself means we're in an iframe.
+            return true;
+        }
+    })();
+
     console.info(
-        '%cAccName/AccDescription/AccRole/AccState/AccAttributes Injector userscript is running.\n' +
+        '%cAccName/AccDescription/AccRole/AccState/AccAttributes Injector userscript is running ' +
+        `${isInIframe ? 'inside an iframe.' : 'in the top-level page (not inside an iframe).'}\n` +
         '%cAdd live expressions to watch values such as:\n' +
         '%cdocument.deepActiveElement?.accName\n' +
         'document.deepActiveElement?.accDescription\n' +
@@ -32,6 +42,7 @@
         'font-family: system-ui; font-size: 1.2em;',
         'color: red; font-size: 1.2em',
     );
+
 
     // -----------------------------------------------------------------
     // Accessible Name / Description computation
@@ -168,6 +179,7 @@
         try {
             const content = window.getComputedStyle(node, pseudo).content;
             if (!content || content === 'none' || content === 'normal') return '';
+            if (/^url\(/i.test(content.trim())) return '';
             return content.replace(/^(['"])(.*)\1$/, '$2');
         } catch (e) {
             return '';
@@ -542,8 +554,8 @@
 
     function getSwitchState(value) {
         return ({
-            true: 'on',
-            false: 'off'
+            true: 'on (checked)',
+            false: 'off (not checked)'
         })[value] || value;
     }
 
@@ -555,10 +567,10 @@
 
             if (tag === 'input') {
                 const type = (el.getAttribute('type') || 'text').toLowerCase();
-                      if (type === 'checkbox') {
-                          states.push(role === 'switch'
-                                ? (el.checked ? 'on' : 'off')
-                                : (el.checked ? 'checked' : 'not checked'));
+                if (type === 'checkbox') {
+                    states.push(role === 'switch'
+                        ? getSwitchState(String(el.checked))
+                        : getCheckedState(String(el.checked)));
                 } else if (type === 'radio') {
                     states.push(el.checked ? 'selected' : 'not selected');
                 } else if (['email', 'password', 'search', 'tel', 'text', 'url'].includes(type)) {
@@ -570,6 +582,9 @@
                 states.push(Array.from(el.selectedOptions).map(getSelectedOptionText).join(', '));
             } else if (tag === 'option') {
                 states.push(el.selected ? 'selected' : 'not selected');
+            } else if (tag === 'summary') {
+                const parentDetails = el.closest('details');
+                if (parentDetails) states.push(parentDetails.hasAttribute('open') ? 'open' : 'not open');
             } else if (el.isContentEditable) {
                 states.push(el.textContent || '');
             } else if (['combobox', 'listbox'].includes(role)) {
@@ -583,7 +598,9 @@
                 el.hasAttribute('aria-checked') && !(role === 'switch' &&
                     tag === 'input' && (el.getAttribute('type') || 'text').toLowerCase() === 'checkbox')) {
                 const checkedState = el.getAttribute('aria-checked');
-                states.push(role === 'switch' ? getSwitchState(checkedState) : getCheckedState(checkedState));
+                states.push(role === 'switch'
+                    ? getSwitchState(checkedState)
+                    : getCheckedState(checkedState));
             }
 
             if (role === 'button' && el.hasAttribute('aria-pressed')) {
@@ -637,7 +654,7 @@
     ]);
 
     const HTML_ATTRIBUTES_BY_TAG = new Map([
-        ['a', ['download', 'href', 'hreflang', 'media', 'ping', 'referrerpolicy', 'rel', 'target', 'type']],
+        ['a', ['download', 'href', 'hreflang', 'media', 'ping', 'referrerpolicy', 'type']], // NOT: 'rel', 'target'
         ['area', ['alt', 'coords', 'download', 'href', 'hreflang', 'media', 'ping', 'referrerpolicy', 'rel', 'shape', 'target', 'type']],
         ['audio', ['autoplay', 'controls', 'crossorigin', 'loop', 'muted', 'preload', 'src']],
         ['button', ['command', 'commandfor', 'disabled', 'form', 'formaction', 'formenctype', 'formmethod', 'formnovalidate', 'formtarget', 'popover', 'popovertarget', 'popovertargetaction', 'type']],
