@@ -108,6 +108,7 @@
       const W3C_ROOT = 'https://www.w3.org/WAI/ARIA/apg/';
       const ASSET_ROOT = 'https://cdn.jsdelivr.net/gh/w3c/aria-practices@main/content/';
       const W3C_ASSET_PREFIX = 'https://www.w3.org/WAI/content-assets/wai-aria-practices/';
+      const INJECTOR_URL = new URL('accNameInjector.js', window.location.href).href;
       const MANIFEST_KEY = 'apg-example-manifest-v3';
       const examples = document.querySelector('#examples');
       const status = document.querySelector('#status');
@@ -219,7 +220,8 @@
           .map((element) => `<script${element.getAttribute('type') === 'module' ? ' type="module"' : ''}>${escapeScriptClose(element.textContent)}<` + '/script>')
           .join('\n');
 
-        return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${styles}<style>body{margin:1rem} .example-header{display:none}</style></head><body>${sectionClone.outerHTML}${scripts}${inlineScripts}<script>window.addEventListener('load',()=>parent.postMessage({type:'apg-example-ready',height:document.documentElement.scrollHeight},'*'));<` + '/script></body></html>';
+        const injector = `<script src="${INJECTOR_URL}"><` + '/script>';
+        return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${injector}${styles}<style>body{margin:1rem} .example-header{display:none}</style></head><body>${sectionClone.outerHTML}${scripts}${inlineScripts}<script>window.addEventListener('load',()=>parent.postMessage({type:'apg-example-ready',height:document.documentElement.scrollHeight},'*'));<` + '/script></body></html>';
       }
 
       function render() {
