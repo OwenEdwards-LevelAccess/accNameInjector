@@ -76,7 +76,7 @@ This script:
 - Returns an empty result for cycles or unresolved references.
 - Does not produce diagnostics for missing, duplicate, or circular references.
 
-The current script has an advantage for the Web Awesome use case: it attempts to resolve IDs in the element’s open `ShadowRoot` and recursively searches open shadow roots. ANDI’s current implementation uses `document.getElementById()`, so it does not provide equivalent open-Shadow-DOM ID resolution.
+The current script has an advantage for the [Web Awesome](https://webawesome.com/) use case: it attempts to resolve IDs in the element’s open `ShadowRoot` and recursively searches open shadow roots. ANDI’s current implementation uses `document.getElementById()`, so it does not provide equivalent open-Shadow-DOM ID resolution.
 
 ### `aria-label`
 
@@ -284,4 +284,4 @@ The largest gaps in the script compared with ANDI are:
 6. Exact block/visibility whitespace behavior
 7. Browser accessibility-tree behavior
 
-The largest advantage of the script is its newer open Shadow DOM handling, especially for component libraries such as Web Awesome.
+The largest advantage of the script is its newer open Shadow DOM handling, especially for component libraries such as [Web Awesome](https://webawesome.com/).
