@@ -70,6 +70,13 @@
       background: var(--accent-soft);
       font-size: 1.15rem;
     }
+    .heading-anchor {
+      color: var(--muted);
+      text-decoration: none;
+    }
+    .heading-anchor:hover, .heading-anchor:focus {
+      text-decoration: underline;
+    }
     article iframe {
       display: block;
       width: 100%;
@@ -128,10 +135,24 @@
         return text.replace(/<\/script/gi, '<\\/script');
       }
 
-      function absoluteAssetUrl(sourcePath, assetPath, root = W3C_ROOT) {
+      // Inlined CSS keeps its url(...) references relative to the original stylesheet,
+      // which no longer resolve correctly once the CSS is embedded in a blob: document.
+      function rewriteCssUrls(cssText, cssUrl) {
+        return cssText.replace(/url\((['"]?)([^'")]+)\1\)/g, (match, quote, path) => {
+          if (/^(data:|https?:|#)/i.test(path)) return match;
+          try {
+            return `url(${quote}${new URL(path, cssUrl).href}${quote})`;
+          } catch {
+            return match;
+          }
+        });
+      }
+
+      function absoluteAssetUrl(sourcePath, assetPath, root = W3C_ROOT, keepOriginalHost = false) {
         try {
           const webPath = sourcePath.replace(/^content\//, '');
           const resolved = new URL(assetPath, root + webPath);
+          if (keepOriginalHost) return resolved.href;
           if (resolved.href.startsWith(W3C_ASSET_PREFIX)) {
             return ASSET_ROOT + resolved.href.slice(W3C_ASSET_PREFIX.length);
           }
@@ -147,20 +168,31 @@
       function rewriteAssets(root, sourcePath) {
         for (const attribute of ['src', 'href']) {
           const value = root.getAttribute?.(attribute);
-          if (value && !value.startsWith('#') && !/^(data:|https?:|mailto:|javascript:)/i.test(value)) {
+          if (value && !value.startsWith('#') && !/^(data:|https?:|blob:|mailto:|javascript:)/i.test(value)) {
             root.setAttribute(attribute, absoluteAssetUrl(sourcePath, value));
           }
         }
         root.querySelectorAll('[src], [href]').forEach((element) => {
           for (const attribute of ['src', 'href']) {
             const value = element.getAttribute(attribute);
-            if (!value || value.startsWith('#') || /^(data:|https?:|mailto:|javascript:)/i.test(value)) continue;
+            if (!value || value.startsWith('#') || /^(data:|https?:|blob:|mailto:|javascript:)/i.test(value)) continue;
             element.setAttribute(attribute, absoluteAssetUrl(sourcePath, value));
           }
         });
-        root.querySelectorAll('img[src]').forEach((image) => {
-          if (image.src.startsWith('https://www.w3.org/WAI/content-images/')) image.remove();
-        });
+      }
+
+      // w3.org sends X-Frame-Options that blocks being framed directly, and jsdelivr
+      // serves .html as text/plain, so nested example iframes are rebuilt as blob:
+      // documents (which share this page's origin) with their own assets rewritten.
+      async function buildNestedFrameSrc(parentSourcePath, iframeSrcAttr) {
+        const pageUrl = absoluteAssetUrl(parentSourcePath, iframeSrcAttr, W3C_ROOT, true);
+        const nestedSourcePath = new URL(pageUrl).pathname.replace(/^\/WAI\/ARIA\/apg\//, '');
+        const html = await fetchTextCached(pageUrl);
+        if (!html) return pageUrl;
+        const nestedDocument = new DOMParser().parseFromString(html, 'text/html');
+        rewriteAssets(nestedDocument.documentElement, nestedSourcePath);
+        const blob = new Blob([`<!doctype html>${nestedDocument.documentElement.outerHTML}`], { type: 'text/html' });
+        return URL.createObjectURL(blob);
       }
 
       function removeCodePenControls(root) {
@@ -186,6 +218,12 @@
         if (heading) heading.textContent = title;
         removeCodePenControls(sectionClone);
         sectionClone.querySelectorAll('script[src]').forEach((script) => script.remove());
+        const nestedFrames = [...sectionClone.querySelectorAll('iframe[src]')];
+        await Promise.all(nestedFrames.map(async (frameEl) => {
+          const src = frameEl.getAttribute('src');
+          if (!src || /^(data:|https?:|blob:|mailto:|javascript:)/i.test(src)) return;
+          frameEl.setAttribute('src', await buildNestedFrameSrc(sourcePath, src));
+        }));
         rewriteAssets(sectionClone, sourcePath);
 
         const styleLinks = [...sourceDocument.querySelectorAll('link[rel="stylesheet"]')]
@@ -193,7 +231,11 @@
         const inlineStyleEls = [...sourceDocument.querySelectorAll('style')];
         const linkedStyles = (await Promise.all(styleLinks.map(async (element) => {
           const url = absoluteAssetUrl(sourcePath, element.getAttribute('href'));
-          return `<style>${await fetchTextCached(url)}</style>`;
+          const cssText = await fetchTextCached(url);
+          // Some CDNs (e.g. Font Awesome) don't send CORS headers, so the fetch is
+          // blocked and returns ''; fall back to a normal stylesheet link for those.
+          if (!cssText) return `<link rel="stylesheet" href="${url}">`;
+          return `<style>${rewriteCssUrls(cssText, url)}</style>`;
         }))).join('\n');
         const styles = linkedStyles + '\n' + inlineStyleEls.map((element) => element.outerHTML).join('\n');
         const scriptEls = [...sourceDocument.querySelectorAll('script[src]')]
@@ -221,12 +263,30 @@
           .join('\n');
 
         const injector = `<script src="${INJECTOR_URL}"><` + '/script>';
-        return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${injector}${styles}<style>body{margin:1rem} .example-header{display:none}</style></head><body>${sectionClone.outerHTML}${scripts}${inlineScripts}<script>window.addEventListener('load',()=>parent.postMessage({type:'apg-example-ready',height:document.documentElement.scrollHeight},'*'));<` + '/script></body></html>';
+        return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${injector}${styles}<style>body{margin:1rem} .example-header{display:none} img:not([width]){max-width:100%;height:auto}</style></head><body>${sectionClone.outerHTML}${scripts}${inlineScripts}<script>window.addEventListener('load',()=>parent.postMessage({type:'apg-example-ready',height:document.documentElement.scrollHeight},'*'));<` + '/script></body></html>';
       }
 
       function render() {
         const query = filter.value.trim().toLowerCase();
         examples.replaceChildren();
+        const usedHeadingIds = new Set();
+        function slugify(text) {
+          const base = text.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'section';
+          let id = base;
+          let suffix = 2;
+          while (usedHeadingIds.has(id)) id = `${base}-${suffix++}`;
+          usedHeadingIds.add(id);
+          return id;
+        }
+        function addHeadingAnchor(heading, text) {
+          heading.id = slugify(text);
+          const anchor = document.createElement('a');
+          anchor.href = `#${heading.id}`;
+          anchor.className = 'heading-anchor';
+          anchor.textContent = '\u00A7';
+          anchor.setAttribute('aria-label', `Link to "${text}"`);
+          heading.append(' ', anchor);
+        }
         const visible = records.filter((record) => `${record.title} ${record.path}`.toLowerCase().includes(query));
         let currentPatternPath = '';
         visible.forEach((record) => {
@@ -235,6 +295,7 @@
             const patternHeading = document.createElement('h2');
             patternHeading.className = 'pattern-heading';
             patternHeading.textContent = record.patternTitle;
+            addHeadingAnchor(patternHeading, record.patternTitle);
             examples.append(patternHeading);
           }
           const article = document.createElement('article');
@@ -246,6 +307,7 @@
           pageLink.rel = 'noopener noreferrer';
           pageLink.textContent = record.title;
           heading.append(pageLink);
+          addHeadingAnchor(heading, record.title);
           article.append(heading);
           const frame = document.createElement('iframe');
           frame.title = record.title;
@@ -318,6 +380,9 @@
         const loadedByPath = new Map(loaded.filter(Boolean).map((record) => [record.path, record]));
         records = manifest.map((entry) => loadedByPath.get(entry.path)).filter(Boolean);
         render();
+        if (location.hash) {
+          document.getElementById(decodeURIComponent(location.hash.slice(1)))?.scrollIntoView(true);
+        }
       }
 
       filter.addEventListener('input', render);
