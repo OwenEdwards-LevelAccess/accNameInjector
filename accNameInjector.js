@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         AccName/AccDescription/AccRole/AccState/AccAttributes Injector
+// @name         AccName/AccDescription/AccRole/AccState/AccAttributes/AccInfo/AccNameRoleState Injector
 // @namespace    http://tampermonkey.net/
-// @version      8.4.1
+// @version      8.4.4
 // @downloadURL  https://raw.githubusercontent.com/OwenEdwards-LevelAccess/accNameInjector/refs/heads/main/accNameInjector.js
 // @updateURL    https://raw.githubusercontent.com/OwenEdwards-LevelAccess/accNameInjector/refs/heads/main/accNameInjector.js
-// @description  Adds live-updating accName and accDescription properties to every DOM element, based on core implementation of Accessible Name and Description Computation 1.2: https://w3c.github.io/aria/accname/. Also adds accRole, accState, and accAttributes properties, and document.deepActiveElement for pages with iframes.
+// @description  Adds live-updating accName and accDescription properties to every DOM element, based on core implementation of Accessible Name and Description Computation 1.2: https://w3c.github.io/aria/accname/. Also adds accRole, accState, accAttributes, accInfo, accNameRoleState, and document.deepActiveElement properties.
 // @author       Owen Edwards
 // @icon         https://raw.githubusercontent.com/OwenEdwards-LevelAccess/accNameInjector/main/noun_Bug_8407539_@700.png
 // @match        *://*/*
@@ -29,14 +29,17 @@
         `${isInIframe ? 'inside an iframe.' : 'in the top-level page (not inside an iframe).'}\n` +
         '%cAdd live expressions to watch values such as:\n' +
         '%cdocument.deepActiveElement?.accName\n' +
-        'document.deepActiveElement?.accDescription\n' +
         'document.deepActiveElement?.accRole %c(the computed role of the element).%c\n' +
         'document.deepActiveElement?.accState\n' +
+        'document.deepActiveElement?.accNameRoleState %c(a convenient summary of the element\'s basic accessible information).%c\n' +
+        'document.deepActiveElement?.accDescription\n' +
         'document.deepActiveElement?.accAttributes\n' +
         '\n%cThese values *may* differ from those displayed in DevTools > Accessibility; ' +
         'always verify information provided by this script.',
         'font-size: 1.5em; color: white; background-color: black;',
         'font-size: 1.2em;',
+        'font-family: system-ui; font-size: 1.2em;',
+        'font-style: italic; font-size: 1.2em;',
         'font-family: system-ui; font-size: 1.2em;',
         'font-style: italic; font-size: 1.2em;',
         'font-family: system-ui; font-size: 1.2em;',
@@ -835,6 +838,17 @@
                 return getAccessibleAttributes(this);
             }
         });
+
+        Object.defineProperty(el, 'accNameRoleState', {
+            configurable: true,
+            enumerable: false,
+            get() {
+                const name = this.accName;
+                const role = this.accRole;
+                const state = this.accState;
+                return `${name} | ${role}${state ? ` | ${state}` : ''}`;
+            }
+        });
     }
 
     function processAllElements(root) {
@@ -933,4 +947,3 @@
         }
     });
 })();
-
