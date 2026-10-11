@@ -1,4 +1,4 @@
-# AccName/AccDescription/AccRole/AccState/AccAttributes Injector
+# AccName/AccDescription/AccRole/AccState/AccAttributes/AccInfo Injector
 A Tampermonkey userscript that allows you to add better "Live expressions" in the Chrome DevTools Console.
 
 With this userscript injected into a page, you can add live expressions to watch these values:
@@ -6,7 +6,9 @@ With this userscript injected into a page, you can add live expressions to watch
 * `element.accDescription` - the accessible description (computed according to the core implementation of Accessible Name and Description Computation 1.2: https://w3c.github.io/aria/accname/)
 * `element.accRole` - the _computed_ role of the element (including the implicit role of an HTML element, not just the ARIA `role` attribute)
 * `element.accState` - the current state, selection, value, or text entered into the element
-* `element.accAttributes` - the element's HTML and ARIA attributes, including generally fixed attributes such as `required`, `readonly`, and range limits
+* `element.accAttributes` - the element's HTML and ARIA attributes, including generally fixed attributes such as `required`, `readonly`, and range limits; also includes the legend text for a containing fieldset as `fieldset with legend`
+* `element.accInfo` - a combined string containing the accessible name and computed role, followed by the state when present
+* `element.accNameRoleState` - the accessible name and computed role, followed by the state when present
 
 **NOTE:** These values *may* differ from those displayed in DevTools > Accessibility. Always verify information provided by this script.
 
@@ -23,6 +25,10 @@ For example, **add these "Live expressions" in the DevTools Console and then do 
 `document.activeElement?.accState`
 
 `document.activeElement?.accAttributes`
+
+`document.activeElement?.accInfo`
+
+`document.activeElement?.accNameRoleState`
 
 For pages that have `<iframe>` elements, there is a helper attribute on `document` called `deepActiveElement` to look for focus inside iframes:
 
