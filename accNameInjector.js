@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AccName/AccDescription/AccRole/AccState/AccAttributes/AccNameRoleState Injector
 // @namespace    http://tampermonkey.net/
-// @version      8.5.1
+// @version      8.5.2
 // @downloadURL  https://raw.githubusercontent.com/OwenEdwards-LevelAccess/accNameInjector/refs/heads/main/accNameInjector.js
 // @updateURL    https://raw.githubusercontent.com/OwenEdwards-LevelAccess/accNameInjector/refs/heads/main/accNameInjector.js
 // @description  Adds live-updating accName and accDescription properties to every DOM element, based on core implementation of Accessible Name and Description Computation 1.2: https://w3c.github.io/aria/accname/. Also adds accRole, accState, accAttributes, accNameRoleState, and document.deepActiveElement properties.
@@ -771,10 +771,9 @@
 
             let fieldset = el.parentElement && el.parentElement.closest('fieldset');
             while (fieldset) {
-                const legend = fieldset.querySelector(':scope > legend');
-                const legendText = legend && flatString(legend.textContent);
-                if (legendText) {
-                    attributes['In a fieldset with legend'] = legendText;
+                const fieldsetName = getAccessibleName(fieldset);
+                if (fieldsetName) {
+                    attributes['In a fieldset with a label/legend'] = fieldsetName;
                     break;
                 }
                 fieldset = fieldset.parentElement && fieldset.parentElement.closest('fieldset');
