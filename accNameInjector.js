@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AccName/AccDescription/AccRole/AccState/AccAttributes/AccNameRoleState Injector
 // @namespace    http://tampermonkey.net/
-// @version      8.5.2
+// @version      8.6.0
 // @downloadURL  https://raw.githubusercontent.com/OwenEdwards-LevelAccess/accNameInjector/refs/heads/main/accNameInjector.js
 // @updateURL    https://raw.githubusercontent.com/OwenEdwards-LevelAccess/accNameInjector/refs/heads/main/accNameInjector.js
 // @description  Adds live-updating accName and accDescription properties to every DOM element, based on core implementation of Accessible Name and Description Computation 1.2: https://w3c.github.io/aria/accname/. Also adds accRole, accState, accAttributes, accNameRoleState, and document.deepActiveElement properties.
@@ -239,6 +239,7 @@
         const type = (el.getAttribute('type') || '').toLowerCase();
 
         if (tag === 'html') return 'document';
+        if (tag === 'body') return 'generic (body element)';
         if (tag === 'a' && el.hasAttribute('href')) return 'link';
         if (tag === 'area' && el.hasAttribute('href')) return 'link';
         if (tag === 'button') return 'button';
