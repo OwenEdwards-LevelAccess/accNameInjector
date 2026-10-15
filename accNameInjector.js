@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AccName/AccDescription/AccRole/AccState/AccAttributes/AccNameRoleState Injector
 // @namespace    http://tampermonkey.net/
-// @version      8.7.0
+// @version      9.1.0
 // @downloadURL  https://raw.githubusercontent.com/OwenEdwards-LevelAccess/accNameInjector/refs/heads/main/accNameInjector.js
 // @updateURL    https://raw.githubusercontent.com/OwenEdwards-LevelAccess/accNameInjector/refs/heads/main/accNameInjector.js
 // @description  Adds live-updating accName and accDescription properties to every DOM element, based on core implementation of Accessible Name and Description Computation 1.2: https://w3c.github.io/aria/accname/. Also adds accRole, accState, accAttributes, accNameRoleState, and document.deepActiveElement properties.
@@ -798,6 +798,21 @@
                     break;
                 }
                 radiogroup = radiogroup.parentElement && radiogroup.parentElement.closest('[role="radiogroup"]');
+            }
+
+            const activeDescendantIds = (el.getAttribute('aria-activedescendant') || '')
+                .split(/\s+/).filter(Boolean);
+            const elRole = getAccessibleRole(el);
+            if (activeDescendantIds.length && elRole && elRole !== 'generic') {
+                const root = el.getRootNode();
+                const descendants = activeDescendantIds
+                    .map((id) => root.getElementById ? root.getElementById(id) : null)
+                    .filter(Boolean)
+                    .map((target) => {
+                        definePropertiesOn(target);
+                        return target.accNameRoleState;
+                    });
+                if (descendants.length) attributes['aria-activedescendant'] = `[${descendants.map((d) => `"${d}"`).join(', ')}]`;
             }
 
             // Check if any ancestor has aria-hidden="true" and propagate it to the attributes.
