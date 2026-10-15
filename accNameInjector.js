@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AccName/AccDescription/AccRole/AccState/AccAttributes/AccNameRoleState Injector
 // @namespace    http://tampermonkey.net/
-// @version      8.6.0
+// @version      8.7.0
 // @downloadURL  https://raw.githubusercontent.com/OwenEdwards-LevelAccess/accNameInjector/refs/heads/main/accNameInjector.js
 // @updateURL    https://raw.githubusercontent.com/OwenEdwards-LevelAccess/accNameInjector/refs/heads/main/accNameInjector.js
 // @description  Adds live-updating accName and accDescription properties to every DOM element, based on core implementation of Accessible Name and Description Computation 1.2: https://w3c.github.io/aria/accname/. Also adds accRole, accState, accAttributes, accNameRoleState, and document.deepActiveElement properties.
@@ -778,6 +778,26 @@
                     break;
                 }
                 fieldset = fieldset.parentElement && fieldset.parentElement.closest('fieldset');
+            }
+
+            let group = el.parentElement && el.parentElement.closest('[role="group"]');
+            while (group) {
+                const groupName = getAccessibleName(group);
+                if (groupName) {
+                    attributes['In an ARIA group with a label'] = groupName;
+                    break;
+                }
+                group = group.parentElement && group.parentElement.closest('[role="group"]');
+            }
+
+            let radiogroup = el.parentElement && el.parentElement.closest('[role="radiogroup"]');
+            while (radiogroup) {
+                const radiogroupName = getAccessibleName(radiogroup);
+                if (radiogroupName) {
+                    attributes['In an ARIA radiogroup with a label'] = radiogroupName;
+                    break;
+                }
+                radiogroup = radiogroup.parentElement && radiogroup.parentElement.closest('[role="radiogroup"]');
             }
 
             // Check if any ancestor has aria-hidden="true" and propagate it to the attributes.
