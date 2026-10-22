@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AccName/AccDescription/AccRole/AccState/AccAttributes/AccNameRoleState Injector
 // @namespace    http://tampermonkey.net/
-// @version      9.4.0
+// @version      9.5.0
 // @downloadURL  https://raw.githubusercontent.com/OwenEdwards-LevelAccess/accNameInjector/refs/heads/main/accNameInjector.js
 // @updateURL    https://raw.githubusercontent.com/OwenEdwards-LevelAccess/accNameInjector/refs/heads/main/accNameInjector.js
 // @description  Adds live-updating accName and accDescription properties to every DOM element, based on core implementation of Accessible Name and Description Computation 1.2: https://w3c.github.io/aria/accname/. Also adds accRole, accState, accAttributes, accNameRoleState, and document.deepActiveElement properties.
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
 
-    const accNameInjectorVersion = '9.4.0';
+    const accNameInjectorVersion = '9.5.0';
 
     const NoNameText = '(no accessible name)';
 
@@ -817,6 +817,17 @@
                         return target.accNameRoleState;
                     });
                 if (descendants.length) attributes['aria-activedescendant'] = `[${descendants.map((d) => `"${d}"`).join(', ')}]`;
+            }
+
+            if (el.getAttribute('aria-invalid') === 'true' && el.hasAttribute('aria-errormessage')) {
+                const errorMessage = flatString(
+                    idRefsToElements(el.getAttribute('aria-errormessage'), el)
+                        .map((ref) => computeTextAlternative(ref, {
+                            visitedNodes: new Set(), inLabelledBy: true, allowHidden: isHiddenFromName(ref)
+                        })).join(' '));
+                if (errorMessage) {
+                    attributes['Marked as aria-invalid, with an aria-errormessage'] = errorMessage;
+                }
             }
 
             // Check if any ancestor has aria-hidden="true" and propagate it to the attributes.
