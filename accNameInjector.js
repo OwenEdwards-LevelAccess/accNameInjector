@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AccName/AccDescription/AccRole/AccState/AccAttributes/AccNameRoleState Injector
 // @namespace    http://tampermonkey.net/
-// @version      9.3.0
+// @version      9.4.0
 // @downloadURL  https://raw.githubusercontent.com/OwenEdwards-LevelAccess/accNameInjector/refs/heads/main/accNameInjector.js
 // @updateURL    https://raw.githubusercontent.com/OwenEdwards-LevelAccess/accNameInjector/refs/heads/main/accNameInjector.js
 // @description  Adds live-updating accName and accDescription properties to every DOM element, based on core implementation of Accessible Name and Description Computation 1.2: https://w3c.github.io/aria/accname/. Also adds accRole, accState, accAttributes, accNameRoleState, and document.deepActiveElement properties.
@@ -15,6 +15,8 @@
 (function () {
     'use strict';
 
+    const accNameInjectorVersion = '9.4.0';
+
     const NoNameText = '(no accessible name)';
 
     const isInIframe = (() => {
@@ -27,7 +29,7 @@
     })();
 
     console.info(
-        '%cAccName/AccDescription/AccRole/AccState/AccAttributes Injector userscript is running ' +
+        '%cAccName/AccDescription/AccRole/AccState/AccAttributes Injector userscript (version ' + accNameInjectorVersion + ') is running ' +
         `${isInIframe ? 'inside an iframe.' : 'in the top-level page (not inside an iframe).'}\n` +
         '%cAdd live expressions to watch values such as:\n' +
         '%cdocument.deepActiveElement?.accName\n' +
